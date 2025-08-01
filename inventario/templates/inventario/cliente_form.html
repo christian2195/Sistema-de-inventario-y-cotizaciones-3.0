@@ -1,0 +1,39 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}
+    {% if form.instance.pk %}Editar Cliente{% else %}Crear Cliente{% endif %}
+{% endblock %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-800">
+        {% if form.instance.pk %}Editar Cliente{% else %}Crear Nuevo Cliente{% endif %}
+    </h1>
+
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="mb-4">
+                    <label for="{{ field.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
+                        {{ field.label }}
+                    </label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <p class="text-gray-500 text-xs italic">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p class="text-red-500 text-xs italic">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="flex justify-end space-x-4 mt-6">
+                <a href="{% url 'inventario:cliente_list' %}" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Cancelar</a>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    {% if form.instance.pk %}Guardar Cambios{% else %}Crear Cliente{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

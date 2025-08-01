@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      # Puedes añadir variables de entorno aquí, por ejemplo:
+      # - SECRET_KEY=your_secret_key_here
+      # - DEBUG=True
+      # - DATABASE_URL=sqlite:///db.sqlite3
+      - PYTHONUNBUFFERED=1 # Asegura que los logs de Python se muestren en tiempo real

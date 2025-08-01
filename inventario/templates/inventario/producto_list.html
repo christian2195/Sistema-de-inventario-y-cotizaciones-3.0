@@ -1,0 +1,108 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Inventario de Productos - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Inventario de Productos</h1>
+
+{# Search bar #}
+<div class="mb-6">
+    <form method="GET" action="{% url 'inventario:product_list' %}" class="flex flex-col sm:flex-row items-center gap-4">
+        <input
+            type="text"
+            name="q"
+            placeholder="Buscar productos por nombre, SKU, marca o modelo..."
+            value="{{ request.GET.q }}" {# Keeps the search term in the field #}
+            class="flex-grow w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+        <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+            Buscar
+        </button>
+        {% if request.GET.q %}
+        {# Button to clear the search if there is an active search #}
+        <a href="{% url 'inventario:product_list' %}" class="w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+            Limpiar Búsqueda
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
+    {# Button to add a new product #}
+    <a href="{% url 'inventario:product_create' %}" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+        Añadir Nuevo Producto
+    </a>
+
+    {# Container for Import/Export buttons #}
+    <div class="flex flex-wrap justify-center sm:justify-end gap-2 sm:space-x-4">
+        {# Button to Export to Excel (corrected URL) #}
+        <a href="{% url 'inventario:export_productos_excel' %}" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+            Exportar Excel
+        </a>
+        
+        {# Button to Export to PDF (corrected URL) #}
+        <a href="{% url 'inventario:export_productos_pdf' %}" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+            Exportar PDF
+        </a>
+
+        {# Button to Export PDF Labels (new addition) #}
+        <a href="{% url 'inventario:export_product_labels_pdf' %}" class="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+            Exportar Etiquetas PDF
+        </a>
+
+        {# Button to Import Excel (this URL already matched) #}
+        <a href="{% url 'inventario:import_productos_excel' %}" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-center">
+            Importar Excel
+        </a>
+    </div>
+</div>
+
+{# Product listing table #}
+<div class="overflow-x-auto bg-white shadow-md rounded-lg">
+    {# Add 'min-w-full' to the table to ensure it takes up the full possible width #}
+    {# And 'table-auto' for columns to automatically adjust their width #}
+    <table class="min-w-full divide-y divide-gray-200 table-auto">
+        <thead class="bg-gray-50">
+            <tr>
+                {# ID and SKU columns are usually short, they can keep 'whitespace-nowrap' #}
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">ID</th>
+                {# For the name, remove 'whitespace-nowrap' to allow text to wrap #}
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
+                {# Brand and Model may also need text wrapping if names are long #}
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modelo</th>
+                {# Stock and Price are usually short numbers #}
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio</th>
+                <th scope="col" class="relative px-6 py-3">
+                    <span class="sr-only">Acciones</span>
+                </th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for product in products %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">{{ product.id }}</td>
+                {# Remove 'whitespace-nowrap' for the name #}
+                <td class="px-6 py-4">{{ product.nombre }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ product.sku }}</td>
+                {# Remove 'whitespace-nowrap' for brand and model #}
+                <td class="px-6 py-4">{{ product.marca|default:"N/A" }}</td>
+                <td class="px-6 py-4">{{ product.modelo|default:"N/A" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ product.stock }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${{ product.precio|floatformat:2 }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <a href="{% url 'inventario:product_update' product.pk %}" class="text-blue-600 hover:text-blue-800 mr-4">Editar</a>
+                    <a href="{% url 'inventario:product_delete' product.pk %}" class="text-red-600 hover:text-red-800">Eliminar</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">No hay productos que coincidan con tu búsqueda.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

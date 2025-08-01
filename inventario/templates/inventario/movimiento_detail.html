@@ -1,0 +1,59 @@
+<!-- inventario/templates/inventario/movimiento_detail.html -->
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle del Movimiento - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Detalle del Movimiento</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <p class="text-sm font-semibold text-gray-600">Producto:</p>
+        <p class="text-lg text-gray-900">
+            <a href="{% url 'inventario:product_detail' movimiento.producto.pk %}" class="text-blue-600 hover:underline">
+                {{ movimiento.producto.nombre }}
+            </a>
+        </p>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <p class="text-sm font-semibold text-gray-600">Tipo:</p>
+        <p class="text-lg text-gray-900">{{ movimiento.get_tipo_display }}</p>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <p class="text-sm font-semibold text-gray-600">Cantidad:</p>
+        <p class="text-lg text-gray-900">{{ movimiento.cantidad }}</p>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <p class="text-sm font-semibold text-gray-600">Fecha:</p>
+        <p class="text-lg text-gray-900">{{ movimiento.fecha|date:"d M Y H:i" }}</p>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg col-span-full">
+        <p class="text-sm font-semibold text-gray-600">Descripción/Motivo:</p>
+        <p class="text-lg text-gray-900">{{ movimiento.descripcion|default:"N/A" }}</p>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg col-span-full">
+        <p class="text-sm font-semibold text-gray-600">Guía de Salida Asociada:</p>
+        <p class="text-lg text-gray-900">
+            {% if movimiento.guia_salida %}
+                <a href="{% url 'inventario:guia_salida_detail' movimiento.guia_salida.pk %}" class="text-blue-600 hover:underline">
+                    {{ movimiento.guia_salida.destinatario }} (ID: {{ movimiento.guia_salida.pk }})
+                </a>
+            {% else %}
+                N/A
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="flex justify-center space-x-4 mt-6">
+    <a href="{% url 'inventario:movimiento_update' movimiento.pk %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+        Editar Movimiento
+    </a>
+    <a href="{% url 'inventario:movimiento_delete' movimiento.pk %}" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+        Eliminar Movimiento
+    </a>
+    <a href="{% url 'inventario:movimiento_list' %}" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+        Volver a la Lista
+    </a>
+</div>
+{% endblock %}

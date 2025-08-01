@@ -1,0 +1,97 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle de Nota de Despacho{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Detalle de Nota de Despacho</h1>
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Nro. Despacho:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.numero_despacho }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Beneficiario:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.beneficiario }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Fecha de Despacho:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.fecha_despacho|date:"d/m/Y" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Proveedor:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.proveedor.nombre|default:"N/A" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">N° Orden Asociada:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.orden_asociada|default:"N/A" }}</p>
+        </div>
+        <div class="md:col-span-2">
+            <p class="text-gray-700 text-sm font-bold">Observaciones:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.observaciones|default:"Sin observaciones" }}</p>
+        </div>
+    </div>
+
+    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles del Conductor</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Nombre del Conductor:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.nombre_conductor|default:"N/A" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">C.I. Conductor:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.ci_conductor|default:"N/A" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Tipo de Vehículo:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.tipo_vehiculo|default:"N/A" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Color del Vehículo:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.color_vehiculo|default:"N/A" }}</p>
+        </div>
+        <div>
+            <p class="text-gray-700 text-sm font-bold">Placa del Vehículo:</p>
+            <p class="text-gray-900 text-lg">{{ nota_despacho.placa_vehiculo|default:"N/A" }}</p>
+        </div>
+    </div>
+
+    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Ítems Despachados</h2>
+    {% if nota_despacho.detalles.all %}
+        <div class="overflow-x-auto rounded-lg shadow-md">
+            <table class="min-w-full bg-white border-collapse">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider rounded-tl-lg">#</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Producto</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Marca</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Modelo</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider rounded-tr-lg">Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in nota_despacho.detalles.all %}
+                        <tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="py-3 px-4 text-gray-800">{{ forloop.counter }}</td>
+                            <td class="py-3 px-4 text-gray-600">{{ detalle.nombre_producto_despacho }}</td>
+                            <td class="py-3 px-4 text-gray-600">{{ detalle.marca }}</td>
+                            <td class="py-3 px-4 text-gray-600">{{ detalle.modelo }}</td>
+                            <td class="py-3 px-4 text-gray-600">{{ detalle.cantidad }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-center text-gray-600 text-lg">No hay ítems registrados para esta nota de despacho.</p>
+    {% endif %}
+
+    <div class="flex justify-end mt-8">
+        <a href="{% url 'inventario:nota_despacho_list' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Volver a la Lista</a>
+        <a href="{% url 'inventario:nota_despacho_update' nota_despacho.pk %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Editar</a>
+        <a href="{% url 'inventario:nota_despacho_delete' nota_despacho.pk %}" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Eliminar</a>
+        <a href="{% url 'inventario:export_nota_despacho_pdf' nota_despacho.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">Exportar PDF</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Etiquetas de Productos</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm; /* Margen general de la página */
+            @frame content_frame {
+                left: 1cm;
+                top: 1cm;
+                width: 19cm; /* Ancho de A4 - 2cm de margen */
+                height: 27.7cm; /* Alto de A4 - 2cm de margen */
+            }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 8pt;
+        }
+        .label-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .label-grid td {
+            width: 33.33%; /* Para 3 columnas */
+            height: 3.5cm; /* Altura aproximada de una etiqueta, ajusta según necesidad */
+            vertical-align: top;
+            padding: 0.1cm; /* Pequeño padding dentro de cada celda de etiqueta */
+            box-sizing: border-box;
+            border: 0.5px solid #eee; /* Borde sutil para visualización, puedes quitarlo */
+        }
+        .label-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2mm; /* Padding interno de la etiqueta */
+        }
+        .label-content p {
+            margin: 0;
+            padding: 0;
+            line-height: 1.2;
+        }
+        .label-name {
+            font-size: 9pt;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        .label-sku {
+            font-size: 7pt;
+            margin-bottom: 1mm;
+        }
+        .label-brand-model {
+            font-size: 7pt;
+            margin-bottom: 3mm;
+        }
+        .barcode-img {
+            max-width: 90%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <table class="label-grid">
+        {% for row in labels_rows %}
+            <tr>
+                {% for label in row %}
+                    <td>
+                        {% if label %}
+                            <div class="label-content">
+                                <p class="label-name">{{ label.nombre }}</p>
+                                <p class="label-sku">SKU: {{ label.sku }}</p>
+                                <p class="label-brand-model">Marca: {{ label.marca|default:"N/A" }} | Modelo: {{ label.modelo|default:"N/A" }}</p>
+                                {% if label.barcode_image %}
+                                    <img class="barcode-img" src="{{ label.barcode_image }}" alt="Barcode for {{ label.sku }}">
+                                {% else %}
+                                    <p style="font-size:6pt; color:red;">No barcode</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

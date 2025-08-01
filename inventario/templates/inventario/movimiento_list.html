@@ -1,0 +1,70 @@
+<!-- inventario/templates/inventario/movimiento_list.html -->
+{% extends 'inventario/base.html' %}
+
+{% block title %}Lista de Movimientos - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Movimientos de Inventario</h1>
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <a href="{% url 'inventario:movimiento_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-3">
+            Registrar Nuevo Movimiento
+        </a>
+        <a href="{% url 'inventario:import_movimientos_excel' %}" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+            Importar Excel
+        </a>
+    </div>
+    <div>
+        <a href="{% url 'inventario:export_movimientos_excel' %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-3">
+            Exportar a Excel
+        </a>
+        <a href="{% url 'inventario:export_movimientos_pdf' %}" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+            Exportar a PDF
+        </a>
+    </div>
+</div>
+
+{% if movimientos %}
+    <div class="overflow-x-auto rounded-lg shadow-md">
+        <table class="min-w-full bg-white border-collapse">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider rounded-tl-lg">Producto</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Tipo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Cantidad</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Fecha</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Guía de Salida</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider rounded-tr-lg">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movimiento in movimientos %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-3 px-4 text-gray-800">{{ movimiento.producto.nombre }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ movimiento.get_tipo_display }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ movimiento.cantidad }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ movimiento.fecha|date:"d M Y H:i" }}</td>
+                        <td class="py-3 px-4 text-gray-600">
+                            {% if movimiento.guia_salida %}
+                                <a href="{% url 'inventario:guia_salida_detail' movimiento.guia_salida.pk %}" class="text-blue-500 hover:text-blue-700">
+                                    {{ movimiento.guia_salida.destinatario }}
+                                </a>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            <a href="{% url 'inventario:movimiento_detail' movimiento.pk %}" class="text-blue-500 hover:text-blue-700 mr-3">Ver</a>
+                            <a href="{% url 'inventario:movimiento_update' movimiento.pk %}" class="text-green-500 hover:text-green-700 mr-3">Editar</a>
+                            <a href="{% url 'inventario:movimiento_delete' movimiento.pk %}" class="text-red-500 hover:text-red-700">Eliminar</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-center text-gray-600 text-lg">No hay movimientos registrados.</p>
+{% endif %}
+{% endblock %}

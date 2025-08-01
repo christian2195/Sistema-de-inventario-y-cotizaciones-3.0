@@ -1,0 +1,45 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle de Producto - {{ producto.nombre }}{% endblock %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-800">Detalle de Producto</h1>
+
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Nombre:</strong> {{ producto.nombre }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Descripción:</strong> {{ producto.descripcion|default:"N/A" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">SKU:</strong> {{ producto.sku }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Cantidad:</strong> {{ producto.cantidad }} {{ producto.unidad_medida.abreviatura|default:"Unid." }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Precio:</strong> ${{ producto.precio|floatformat:2 }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Stock Mínimo:</strong> {{ producto.stock_minimo }}</p>
+            </div>
+            <div>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Marca:</strong> {{ producto.marca|default:"N/A" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Modelo:</strong> {{ producto.modelo|default:"N/A" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Proveedor:</strong> {{ producto.proveedor.nombre|default:"N/A" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Almacén:</strong> {{ producto.almacen.nombre|default:"N/A" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Fecha de Creación:</strong> {{ producto.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                <p class="text-gray-700 mb-2"><strong class="font-semibold">Última Actualización:</strong> {{ producto.fecha_actualizacion|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+
+        {% if producto.foto %}
+            <div class="mb-6 text-center">
+                <h2 class="text-xl font-semibold mb-2 text-blue-700">Foto Referencial</h2>
+                <img src="{{ producto.foto.url }}" alt="Foto de {{ producto.nombre }}" class="max-w-xs mx-auto rounded-lg shadow-md border border-gray-200">
+            </div>
+        {% endif %}
+
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{% url 'inventario:product_list' %}" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Volver a la Lista</a>
+            <a href="{% url 'inventario:product_update' producto.pk %}" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Editar</a>
+            <a href="{% url 'inventario:product_delete' producto.pk %}" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Eliminar</a>
+            {# Puedes añadir un botón para imprimir la etiqueta de este producto específico si lo deseas #}
+            <a href="{% url 'inventario:export_product_labels_pdf' %}?product_id={{ producto.pk }}" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700" target="_blank">Imprimir Etiqueta</a>
+        </div>
+    </div>
+{% endblock %}
+
+

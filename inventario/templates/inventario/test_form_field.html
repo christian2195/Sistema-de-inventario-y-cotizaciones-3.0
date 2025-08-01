@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Campo de Formulario</title>
+</head>
+<body>
+    <h1>Test del Campo Cliente</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div>
+            <label for="{{ form.cliente.id_for_label }}">Cliente:</label>
+            {{ form.cliente }}
+        </div>
+        <button type="submit">Enviar</button>
+    </form>
+</body>
+</html>

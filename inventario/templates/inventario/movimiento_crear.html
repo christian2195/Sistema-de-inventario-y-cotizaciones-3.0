@@ -1,0 +1,531 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Registrar Nuevo Movimiento{% endblock %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-800">Registrar Nuevo Movimiento</h1>
+
+    {# Área para mensajes de confirmación/error #}
+    <div id="message-area" class="fixed top-0 left-1/2 -translate-x-1/2 w-11/12 max-w-md mt-4 z-50"></div>
+
+    <style>
+        /* Estilos básicos para los mensajes de confirmación/error */
+        .message-box {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border-width: 1px;
+            font-weight: 700; /* font-bold */
+            text-align: center; /* Centrar texto dentro del cuadro */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para destacarlo */
+        }
+
+        .message-box.success {
+            background-color: #d1fae5; /* bg-green-100 */
+            border-color: #34d399; /* border-green-400 */
+            color: #065f46; /* text-green-700 */
+        }
+
+        .message-box.error {
+            background-color: #fee2e2; /* bg-red-100 */
+            border-color: #ef4444; /* border-red-400 */
+            color: #991b1b; /* text-red-700 */
+        }
+
+        /* Estilos específicos para la interfaz tipo POS */
+        .movement-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        .movement-item:last-child {
+            border-bottom: none;
+        }
+        .btn-primary {
+            background-color: #4F81BD;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #3b6e9e;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Nuevos estilos para la tabla de productos */
+        table {
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            font-weight: bold;
+            background-color: #e0e7ff; /* Tailwind blue-100 */
+            color: #1e40af; /* Tailwind blue-800 */
+            text-transform: uppercase;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb; /* Tailwind gray-50 */
+        }
+        tr:hover {
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+        .product-search-cell input {
+            width: 100px; /* Ancho ajustado para el input de cantidad en la tabla */
+        }
+
+        /* Estilo para asegurar que la lista de productos se expanda completamente */
+        .full-height-product-list {
+            max-height: none !important; /* Anula cualquier max-height */
+            overflow-y: visible !important; /* Asegura que no haya barra de desplazamiento vertical */
+        }
+    </style>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="col-span-2 bg-gray-50 p-6 rounded-lg shadow-inner full-height-product-list">
+            <h2 class="text-xl font-semibold mb-4 text-blue-700">Productos Disponibles</h2>
+            <div class="mb-4">
+                <input type="text" id="product-search-input" placeholder="Buscar producto por nombre, SKU, marca o modelo..." class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="overflow-x-auto"> {# Para hacer la tabla responsive en pantallas pequeñas #}
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead>
+                        <tr class="bg-blue-100 text-blue-800 uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left">Nombre</th>
+                            <th class="py-3 px-6 text-left">SKU</th>
+                            <th class="py-3 px-6 text-center">Stock</th>
+                            <th class="py-3 px-6 text-right">Precio</th>
+                            <th class="py-3 px-6 text-center">Cantidad</th>
+                            <th class="py-3 px-6 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="product-list-table-body" class="text-gray-700 text-sm font-light">
+                        {% for product in productos %}
+                        <tr class="border-b border-gray-200 hover:bg-gray-100 product-row"
+                            data-product-id="{{ product.id }}"
+                            data-product-name="{{ product.nombre }}"
+                            data-product-price="{{ product.precio }}"
+                            data-product-stock="{{ product.cantidad }}"
+                            data-product-um="{{ product.unidad_medida.abreviatura }}"
+                            data-product-marca="{{ product.marca }}"
+                            data-product-modelo="{{ product.modelo }}"
+                            data-product-sku="{{ product.sku }}">
+                            <td class="py-3 px-6 text-left font-medium">{{ product.nombre }}</td>
+                            <td class="py-3 px-6 text-left">{{ product.sku }}</td>
+                            <td class="py-3 px-6 text-center">{{ product.cantidad }} {{ product.unidad_medida.abreviatura }}</td>
+                            <td class="py-3 px-6 text-right">${{ product.precio|floatformat:2 }}</td>
+                            <td class="py-3 px-6 text-center product-search-cell">
+                                <input type="number" min="1" value="1" max="{{ product.cantidad }}" class="w-20 p-1 border border-gray-300 rounded-md text-center text-sm quantity-input" id="qty-{{ product.id }}">
+                            </td>
+                            <td class="py-3 px-6 text-center">
+                                <button type="button" class="btn-primary add-to-movement-btn" data-product-id="{{ product.id }}">Añadir</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="py-3 px-6 text-center text-gray-600">No hay productos disponibles en el inventario.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 p-6 rounded-lg shadow-inner flex flex-col">
+            <h2 class="text-xl font-semibold mb-4 text-blue-700">Detalles del Movimiento</h2>
+            
+            <div class="mb-4">
+                <label for="tipo_movimiento_select" class="block text-gray-700 text-sm font-bold mb-2">Tipo de Movimiento:</label>
+                <select id="tipo_movimiento_select" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">-- Seleccione un Tipo de Movimiento --</option>
+                    {% for tipo in tipos_movimiento %}
+                        <option value="{{ tipo.id }}" data-es-entrada="{{ tipo.es_entrada|lower }}" data-es-salida="{{ tipo.es_salida|lower }}" data-es-traslado="{{ tipo.es_traslado|lower }}">{{ tipo.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="almacen_origen_select" class="block text-gray-700 text-sm font-bold mb-2">Almacén Origen:</label>
+                <select id="almacen_origen_select" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">-- Seleccione Almacén Origen --</option>
+                    {% for almacen in almacenes %}
+                        <option value="{{ almacen.id }}">{{ almacen.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4 hidden" id="almacen_destino_group">
+                <label for="almacen_destino_select" class="block text-gray-700 text-sm font-bold mb-2">Almacén Destino:</label>
+                <select id="almacen_destino_select" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">-- Seleccione Almacén Destino --</option>
+                    {% for almacen in almacenes %}
+                        <option value="{{ almacen.id }}">{{ almacen.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="descripcion_movimiento" class="block text-gray-700 text-sm font-bold mb-2">Descripción (Opcional):</label>
+                <textarea id="descripcion_movimiento" rows="3" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+            </div>
+
+            <h3 class="text-lg font-semibold mb-3 text-blue-700">Productos en este Movimiento</h3>
+            <div id="movement-items" class="space-y-2 mb-4 flex-grow border-b pb-4">
+                <p class="text-gray-600 text-center" id="empty-movement-message">No hay productos en este movimiento.</p>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" id="clear-movement-btn">Vaciar Movimiento</button>
+                <button type="button" class="btn-primary" id="create-movement-btn">Registrar Movimiento</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Script de movimiento_crear.html cargado.'); // Debugging: Confirm script load
+
+        const productSearchInput = document.getElementById('product-search-input');
+        const productListTableBody = document.getElementById('product-list-table-body');
+        const tipoMovimientoSelect = document.getElementById('tipo_movimiento_select');
+        const almacenOrigenSelect = document.getElementById('almacen_origen_select');
+        const almacenDestinoGroup = document.getElementById('almacen_destino_group');
+        const almacenDestinoSelect = document.getElementById('almacen_destino_select');
+        const descripcionMovimiento = document.getElementById('descripcion_movimiento');
+        const movementItemsDiv = document.getElementById('movement-items');
+        const emptyMovementMessage = document.getElementById('empty-movement-message');
+        const clearMovementBtn = document.getElementById('clear-movement-btn');
+        const createMovementBtn = document.getElementById('create-movement-btn');
+        const messageArea = document.getElementById('message-area');
+
+        // Data from Django context
+        const allProductsData = [
+            {% for product in productos %}
+                {
+                    id: {{ product.id }},
+                    nombre: "{{ product.nombre|escapejs }}",
+                    sku: "{{ product.sku|escapejs }}",
+                    cantidad: {{ product.cantidad }}, // Stock actual del producto
+                    precio: {{ product.precio|floatformat:2 }},
+                    unidad_medida: "{{ product.unidad_medida.abreviatura|default:''|escapejs }}",
+                    marca: "{{ product.marca|default:''|escapejs }}",
+                    modelo: "{{ product.modelo|default:''|escapejs }}"
+                },
+            {% endfor %}
+        ];
+
+        // Map for quick product lookup by ID
+        const productsMap = {};
+        allProductsData.forEach(p => {
+            productsMap[p.id] = p;
+        });
+        console.log('productsMap inicializado:', productsMap);
+
+        // Stores products selected for the movement: { productId: { productData, quantity } }
+        const selectedProductsForMovement = {};
+
+        function showMessage(message, type) {
+            messageArea.innerHTML = `<div class="message-box ${type}">${message}</div>`;
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 7000); // Message disappears after 7 seconds
+        }
+
+        function updateMovementDisplay() {
+            movementItemsDiv.innerHTML = '';
+            let movementIsEmpty = true;
+
+            for (const productId in selectedProductsForMovement) {
+                movementIsEmpty = false;
+                const item = selectedProductsForMovement[productId];
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'movement-item';
+                itemDiv.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="font-semibold text-gray-800">${item.nombre}</p>
+                        <p class="text-sm text-gray-600">Cantidad: ${item.quantity} ${item.unidad_medida || ''}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" min="1" max="${item.stock}" value="${item.quantity}" class="w-20 p-1 border border-gray-300 rounded-md text-center text-sm movement-item-qty-input" data-product-id="${productId}">
+                        <button type="button" class="btn-danger remove-from-movement-btn" data-product-id="${productId}">X</button>
+                    </div>
+                `;
+                movementItemsDiv.appendChild(itemDiv);
+            }
+
+            emptyMovementMessage.style.display = movementIsEmpty ? 'block' : 'none';
+        }
+
+        function clearMovement() {
+            for (const productId in selectedProductsForMovement) {
+                delete selectedProductsForMovement[productId];
+            }
+            updateMovementDisplay();
+            showMessage('Movimiento vaciado.', 'success');
+        }
+
+        // --- Event Listeners ---
+
+        // Toggle Almacén Destino visibility based on Tipo de Movimiento
+        tipoMovimientoSelect.addEventListener('change', () => {
+            const selectedOption = tipoMovimientoSelect.options[tipoMovimientoSelect.selectedIndex];
+            const esTraslado = selectedOption.dataset.esTraslado === 'true';
+
+            if (esTraslado) {
+                almacenDestinoGroup.classList.remove('hidden');
+                almacenDestinoSelect.required = true;
+            } else {
+                almacenDestinoGroup.classList.add('hidden');
+                almacenDestinoSelect.required = false;
+                almacenDestinoSelect.value = ''; // Clear selection
+            }
+        });
+
+
+        productSearchInput.addEventListener('input', (event) => {
+            const filterText = event.target.value.toLowerCase();
+            const productRows = productListTableBody.querySelectorAll('.product-row');
+            productRows.forEach(row => {
+                const productName = row.dataset.productName.toLowerCase();
+                const productSku = row.dataset.productSku.toLowerCase();
+                const productMarca = row.dataset.productMarca.toLowerCase();
+                const productModelo = row.dataset.productModelo.toLowerCase();
+
+                if (productName.includes(filterText) || productSku.includes(filterText) || productMarca.includes(filterText) || productModelo.includes(filterText)) {
+                    row.style.display = ''; // Mostrar fila
+                } else {
+                    row.style.display = 'none'; // Ocultar fila
+                }
+            });
+        });
+
+        productListTableBody.addEventListener('click', (event) => {
+            if (event.target.classList.contains('add-to-movement-btn')) {
+                const productId = event.target.dataset.productId;
+                const quantityInput = document.getElementById(`qty-${productId}`);
+                let quantity = parseInt(quantityInput.value);
+
+                console.log(`Intento de añadir producto ${productId} con cantidad ${quantity}`);
+
+                if (isNaN(quantity) || quantity <= 0) {
+                    showMessage('La cantidad debe ser un número positivo.', 'error');
+                    return;
+                }
+
+                const product = productsMap[productId];
+                if (!product) {
+                    showMessage('Producto no encontrado.', 'error');
+                    return;
+                }
+
+                const selectedTipoMovimiento = tipoMovimientoSelect.options[tipoMovimientoSelect.selectedIndex];
+                const esEntrada = selectedTipoMovimiento.dataset.esEntrada === 'true';
+                const esSalida = selectedTipoMovimiento.dataset.esSalida === 'true';
+                const esTraslado = selectedTipoMovimiento.dataset.esTraslado === 'true';
+
+                if (esSalida || esTraslado) { // Only check stock for salida or traslado
+                    if (quantity > product.cantidad) { // Check against actual stock
+                        showMessage(`No hay suficiente stock para ${product.nombre}. Cantidad disponible: ${product.cantidad} ${product.unidad_medida}.`, 'error');
+                        return;
+                    }
+
+                    if (selectedProductsForMovement[productId]) {
+                        // Product already in movement, check cumulative quantity
+                        const currentQuantityInMovement = selectedProductsForMovement[productId].quantity;
+                        if (currentQuantityInMovement + quantity > product.cantidad) {
+                            showMessage(`No se puede añadir más de ${product.cantidad - currentQuantityInMovement} ${product.unidad_medida} de ${product.nombre}.`, 'error');
+                            return;
+                        }
+                    }
+                }
+                
+                if (selectedProductsForMovement[productId]) {
+                    // Product already in movement, update quantity
+                    selectedProductsForMovement[productId].quantity += quantity;
+                    showMessage(`${quantity} ${product.unidad_medida}(es) de ${product.nombre} añadido(s) al movimiento (total: ${selectedProductsForMovement[productId].quantity}).`, 'success');
+                } else {
+                    // Add new product to movement
+                    selectedProductsForMovement[productId] = {
+                        id: product.id,
+                        nombre: product.nombre,
+                        sku: product.sku,
+                        precio: product.precio,
+                        stock: product.cantidad, // Keep track of original stock for validation
+                        unidad_medida: product.unidad_medida,
+                        quantity: quantity
+                    };
+                    showMessage(`${quantity} ${product.unidad_medida}(es) de ${product.nombre} añadido(s) al movimiento.`, 'success');
+                }
+                
+                quantityInput.value = 1; // Reset quantity input
+                updateMovementDisplay();
+                console.log('selectedProductsForMovement:', selectedProductsForMovement);
+            }
+        });
+
+        movementItemsDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('remove-from-movement-btn')) {
+                const productId = event.target.dataset.productId;
+                delete selectedProductsForMovement[productId];
+                updateMovementDisplay();
+                showMessage('Producto eliminado del movimiento.', 'success');
+                console.log('selectedProductsForMovement después de eliminar:', selectedProductsForMovement);
+            }
+        });
+
+        movementItemsDiv.addEventListener('change', (event) => {
+            if (event.target.classList.contains('movement-item-qty-input')) {
+                const productId = event.target.dataset.productId;
+                let newQuantity = parseInt(event.target.value);
+
+                if (isNaN(newQuantity) || newQuantity <= 0) {
+                    showMessage('La cantidad debe ser un número positivo.', 'error');
+                    event.target.value = selectedProductsForMovement[productId].quantity; // Revert to old quantity
+                    return;
+                }
+
+                const product = productsMap[productId];
+                const selectedTipoMovimiento = tipoMovimientoSelect.options[tipoMovimientoSelect.selectedIndex];
+                const esSalida = selectedTipoMovimiento.dataset.esSalida === 'true';
+                const esTraslado = selectedTipoMovimiento.dataset.esTraslado === 'true';
+
+                if (esSalida || esTraslado) { // Only check stock for salida or traslado
+                    if (newQuantity > product.cantidad) {
+                        showMessage(`No hay suficiente stock para ${product.nombre}. Cantidad disponible: ${product.cantidad} ${product.unidad_medida}.`, 'error');
+                        event.target.value = selectedProductsForMovement[productId].quantity; // Revert to old quantity
+                        return;
+                    }
+                }
+
+                selectedProductsForMovement[productId].quantity = newQuantity;
+                updateMovementDisplay();
+                showMessage(`Cantidad de ${product.nombre} actualizada a ${newQuantity}.`, 'success');
+                console.log('selectedProductsForMovement después de actualizar cantidad:', selectedProductsForMovement);
+            }
+        });
+
+        clearMovementBtn.addEventListener('click', clearMovement);
+
+        createMovementBtn.addEventListener('click', async () => {
+            const tipoMovimientoId = tipoMovimientoSelect.value;
+            const almacenOrigenId = almacenOrigenSelect.value;
+            const almacenDestinoId = almacenDestinoSelect.value;
+            const descripcion = descripcionMovimiento.value;
+
+            const selectedTipoMovimientoOption = tipoMovimientoSelect.options[tipoMovimientoSelect.selectedIndex];
+            const esTraslado = selectedTipoMovimientoOption.dataset.esTraslado === 'true';
+
+            if (!tipoMovimientoId) {
+                showMessage('Por favor, seleccione un tipo de movimiento.', 'error');
+                return;
+            }
+            if (!almacenOrigenId) {
+                showMessage('Por favor, seleccione un almacén de origen.', 'error');
+                return;
+            }
+            if (esTraslado && !almacenDestinoId) {
+                showMessage('Para un movimiento de tipo "Traslado", debe seleccionar un almacén de destino.', 'error');
+                return;
+            }
+            if (Object.keys(selectedProductsForMovement).length === 0) {
+                showMessage('Por favor, añada productos al movimiento.', 'error');
+                return;
+            }
+
+            // Prepare items for submission
+            const items = [];
+            for (const productId in selectedProductsForMovement) {
+                const item = selectedProductsForMovement[productId];
+                items.push({
+                    producto_id: item.id,
+                    cantidad: item.quantity,
+                    // No necesitamos precio_unitario aquí, el backend lo tomará del producto
+                    // El nombre, marca, modelo, etc., se pueden guardar en el DetalleMovimiento
+                    // si el modelo lo permite, o simplemente se vincula al Producto.
+                    // Para este caso, el backend ya tiene el producto ID y puede obtener sus detalles.
+                });
+            }
+
+            createMovementBtn.disabled = true;
+            createMovementBtn.textContent = 'Registrando...';
+
+            try {
+                const response = await fetch('{% url "inventario:crear_movimiento_from_interface" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        tipo_movimiento_id: tipoMovimientoId,
+                        almacen_origen_id: almacenOrigenId,
+                        almacen_destino_id: esTraslado ? almacenDestinoId : null, // Send null if not traslado
+                        descripcion: descripcion,
+                        items: items
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                    clearMovement(); // Clear the interface after successful creation
+                    tipoMovimientoSelect.value = ''; // Reset selects
+                    almacenOrigenSelect.value = '';
+                    almacenDestinoSelect.value = '';
+                    descripcionMovimiento.value = '';
+                    almacenDestinoGroup.classList.add('hidden'); // Hide destination
+                    console.log('Movimiento creado:', data);
+                    // Opcional: Redirigir a una página de éxito o al listado de movimientos
+                    // window.location.href = '{% url "inventario:movimiento_list" %}'; 
+                } else {
+                    showMessage(`Error: ${data.message}`, 'error');
+                    console.error('Error al crear movimiento:', data);
+                }
+            } catch (error) {
+                showMessage('Error de conexión al registrar el movimiento.', 'error');
+                console.error('Error de red o servidor:', error);
+            } finally {
+                createMovementBtn.disabled = false;
+                createMovementBtn.textContent = 'Registrar Movimiento';
+            }
+        });
+
+        // Initial display update
+        updateMovementDisplay();
+    </script>
+{% endblock %}

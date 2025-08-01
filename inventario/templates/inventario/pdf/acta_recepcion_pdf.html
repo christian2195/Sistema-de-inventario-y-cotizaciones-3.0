@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acta de Recepción - {{ acta_recepcion.numero_recepcion }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm; /* Margen general */
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 1cm;
+                margin-left: 1cm;
+                margin-right: 1cm;
+                height: 0.8cm;
+            }
+        }
+        body {
+            font-family: 'Helvetica', sans-serif;
+            font-size: 9pt;
+            line-height: 1.2;
+            color: #333;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Helvetica-Bold', sans-serif;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+        .header-section {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5cm;
+        }
+        .header-image {
+            width: 100%; /* Ocupa el 100% del ancho disponible en su contenedor */
+            max-height: 2cm; /* Altura máxima para el logo */
+            object-fit: contain; /* Asegura que la imagen se ajuste sin distorsionarse */
+            margin-bottom: 0.2cm;
+        }
+        .header-text-block {
+            width: 25%;
+            text-align: center;
+            font-size: 8pt;
+            line-height: 1.1;
+        }
+        .header-nro {
+            width: 25%;
+            text-align: right;
+            font-size: 16pt;
+            font-weight: bold;
+            vertical-align: top;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0.3cm;
+        }
+        .header-table td {
+            border: none; /* No border for header table cells */
+            padding: 0;
+            vertical-align: top;
+        }
+        .info-table, .items-table, .observations-table, .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0.3cm;
+        }
+        .info-table td, .items-table th, .items-table td, .observations-table td, .signatures-table td {
+            border: 1px solid #000;
+            padding: 4px; /* Padding de celdas */
+            vertical-align: middle;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .bg-light-gray { background-color: #D3D3D3; } /* Gris claro */
+        .title-main {
+            font-size: 14pt;
+            text-align: center;
+            margin-bottom: 0.3cm;
+            padding: 5px;
+            border: 1px solid #000;
+            background-color: #f0f0f0; /* Ligeramente más oscuro para el título principal */
+        }
+        .section-title {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 0.1cm;
+            border-bottom: 1px solid #000;
+            padding-bottom: 1px;
+            margin-top: 0.5cm;
+        }
+        .items-table th {
+            background-color: #D3D3D3;
+            font-weight: bold;
+            text-align: center;
+        }
+        .items-table td {
+            text-align: center;
+            height: 0.6cm; /* Altura mínima para filas de ítems */
+        }
+        .items-table .product-cell {
+            text-align: left;
+        }
+        .signature-line {
+            border-bottom: 1px solid #000;
+            width: 80%;
+            margin: 0 auto;
+            margin-top: 0.5cm;
+            margin-bottom: 0.1cm;
+        }
+        .signature-label {
+            font-size: 8pt;
+            text-align: center;
+            margin-top: 2px;
+        }
+        .spacer { height: 0.5cm; }
+        .small-spacer { height: 0.2cm; }
+        .footer-text {
+            font-size: 8pt;
+            text-align: right;
+        }
+        .signatures-table p {
+            margin: 0;
+            padding: 0;
+            line-height: 1.1;
+        }
+    </style>
+</head>
+<body>
+
+    <table class="header-table">
+        <tr>
+            <td style="width: 75%; text-align: left;">
+                {% if header_image_path %}
+                    <img src="file://{{ header_image_path }}" class="header-image" alt="Encabezado del Gobierno">
+                {% endif %}
+            </td>
+            <td style="width: 25%;" class="text-right">
+                <p class="font-bold" style="font-size: 16pt;">Nro. {{ acta_recepcion.numero_recepcion }}</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="width: 25%;" class="text-center">
+                <p class="font-bold" style="font-size: 8pt;">Gobierno Bolivariano<br/>de Venezuela</p>
+            </td>
+            <td style="width: 25%;" class="text-center">
+                <p class="font-bold" style="font-size: 8pt;">Ministerio del Poder Popular<br/>de Industrias y Producción Nacional</p>
+            </td>
+            <td style="width: 25%;" class="text-center">
+                <p class="font-bold" style="font-size: 8pt;">Viceministerio de Industrias<br/>Intermedias y Ligeras</p>
+            </td>
+            <td style="width: 25%;" class="text-right">
+                {# Placeholder para la esquina superior derecha, si es necesario #}
+            </td>
+        </tr>
+    </table>
+
+    <p class="title-main font-bold">ACTA DE RECEPCIÓN ALMACEN TIUNA</p>
+
+    <table class="info-table">
+        <tr>
+            <td class="bg-light-gray font-bold" style="width: 25%;">NOMBRE DEL PROVEEDOR</td>
+            <td style="width: 50%;">{{ acta_recepcion.proveedor.nombre|default:"N/A" }}</td>
+            <td class="bg-light-gray font-bold" style="width: 15%;">FECHA DE RECEPCION</td>
+            <td style="width: 10%;">{{ acta_recepcion.fecha_recepcion|date:"d/m/Y" }}</td>
+        </tr>
+        <tr>
+            <td class="bg-light-gray font-bold">INSTITUCION</td>
+            <td></td> {# Placeholder for Institucion, if applicable #}
+            <td class="bg-light-gray font-bold">N° ORDEN ASOCIADA</td>
+            <td>{{ acta_recepcion.orden_asociada|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="bg-light-gray font-bold">UBICACION DENTRO DEL ALMACEN</td>
+            <td>{{ acta_recepcion.ubicacion_almacen|default:"N/A" }}</td>
+            <td class="bg-light-gray font-bold">ESTADO DE LA MERCANCIA</td>
+            <td>{{ acta_recepcion.estado_mercancia|default:"N/A" }}</td>
+        </tr>
+    </table>
+
+    <p class="section-title">ÍTEMS</p>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 5%;">ITEMS</th>
+                <th style="width: 35%;">PRODUCTO</th>
+                <th style="width: 20%;">MARCA</th>
+                <th style="width: 20%;">MODELO</th>
+                <th style="width: 20%;">CANTIDAD</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td class="product-cell">{{ detalle.nombre_producto_recepcion }}</td>
+                <td>{{ detalle.marca }}</td>
+                <td>{{ detalle.modelo }}</td>
+                <td>{{ detalle.cantidad }}</td>
+            </tr>
+            {% endfor %}
+            {# Rellenar con filas vacías hasta un total de 5 ítems, o más si es necesario #}
+            {# El bucle ljust no funciona directamente con enteros, se necesita un filtro custom o JS #}
+            {# Para fines de PDF, podemos asumir un número fijo de filas o calcularlo en la vista #}
+            {% for i in empty_rows_range %} 
+                <tr>
+                    <td>{{ detalles|length |add:forloop.counter }}</td> {# Ajustado para que el contador continúe #}
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="info-table">
+        <tr>
+            <td class="bg-light-gray font-bold" style="width: 25%;">TOTAL PRODUCTOS</td>
+            <td style="width: 75%;">{{ total_cantidad }}</td>
+        </tr>
+    </table>
+
+    <table class="info-table">
+        <tr>
+            <td class="bg-light-gray font-bold" style="width: 25%;">NOMBRE DEL CONDUCTOR</td>
+            <td style="width: 25%;">{{ acta_recepcion.nombre_conductor|default:"" }}</td>
+            <td class="bg-light-gray font-bold" style="width: 10%;">C.I.</td>
+            <td style="width: 15%;">{{ acta_recepcion.ci_conductor|default:"" }}</td>
+            <td class="bg-light-gray font-bold" style="width: 10%;">TIPO</td>
+            <td style="width: 15%;">{{ acta_recepcion.tipo_vehiculo|default:"" }}</td>
+        </tr>
+        <tr>
+            <td class="bg-light-gray font-bold">COLOR</td>
+            <td>{{ acta_recepcion.color_vehiculo|default:"" }}</td>
+            <td class="bg-light-gray font-bold" colspan="2">PLACA</td>
+            <td colspan="2">{{ acta_recepcion.placa_vehiculo|default:"" }}</td>
+        </tr>
+    </table>
+
+    <p class="section-title">OBSERVACIONES</p>
+    <table class="observations-table">
+        <tr>
+            <td style="height: 2.5cm; vertical-align: top;">{{ acta_recepcion.observaciones|default:"" }}</td>
+        </tr>
+    </table>
+
+    <div class="spacer"></div>
+
+    <table class="signatures-table">
+        <tr>
+            <td class="text-center" style="width: 50%;">
+                <p class="font-bold">Conductor:</p>
+                <p>C.I./V.: {{ acta_recepcion.ci_conductor|default:"" }}</p>
+                <p>Telf: </p> {# Placeholder for Conductor's Phone #}
+                <p>Fecha y Hora de Llegada:</p> {# Placeholder for Conductor's Arrival Date/Time #}
+                <div class="signature-line"></div>
+                <p class="signature-label">Firma del Conductor</p>
+            </td>
+            <td class="text-center" style="width: 50%;">
+                <p class="font-bold">Beneficiario / Autorizado:</p>
+                <p>C.I.: </p> {# Placeholder for Beneficiary's CI #}
+                <p>Telf: </p> {# Placeholder for Beneficiary's Phone #}
+                <p>Fecha y Hora de Llegada:</p> {# Placeholder for Beneficiary's Arrival Date/Time #}
+                <div class="signature-line"></div>
+                <p class="signature-label">Firma del Beneficiario / Autorizado</p>
+            </td>
+        </tr>
+    </table>
+
+    <div id="footerContent">
+        <p class="footer-text">ELABORADO POR</p>
+    </div>
+
+</body>
+</html>

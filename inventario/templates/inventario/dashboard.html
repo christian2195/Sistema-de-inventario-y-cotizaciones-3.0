@@ -1,0 +1,56 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Dashboard de Inventario - ENVEPRO{% endblock %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-800">Dashboard de Inventario</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="card text-center">
+            <p class="text-gray-600">Total de Productos</p>
+            <p class="text-5xl font-extrabold text-blue-700">{{ total_productos }}</p>
+        </div>
+        <div class="card text-center">
+            <p class="text-gray-600">Valor Total de Stock</p>
+            <p class="text-5xl font-extrabold text-green-700">${{ stock_total_valor|floatformat:2 }}</p>
+        </div>
+        <div class="card text-center">
+            <p class="text-gray-600">Productos Bajo Stock Mínimo</p>
+            <p class="text-5xl font-extrabold text-red-700">{{ productos_bajo_stock|length }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="card">
+            <h2 class="card-title">Últimos Movimientos</h2>
+            <div class="space-y-2">
+                {% for movimiento in ultimos_movimientos %}
+                <div class="list-item">
+                    <p class="font-semibold">{{ movimiento.producto.nombre }}</p>
+                    <p class="text-sm text-gray-600">
+                        {{ movimiento.get_tipo_display|capfirst }} de {{ movimiento.cantidad }} unid. el {{ movimiento.fecha|date:"d M, Y H:i" }}
+                    </p>
+                </div>
+                {% empty %}
+                <p class="text-gray-600">No hay movimientos recientes.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Productos con Bajo Stock</h2>
+            <div class="space-y-2">
+                {% for producto in productos_bajo_stock %}
+                <div class="list-item">
+                    <p class="font-semibold">{{ producto.nombre }} (SKU: {{ producto.sku }})</p>
+                    <p class="text-sm text-gray-600">
+                        Stock actual: {{ producto.cantidad }} (Mínimo: {{ producto.stock_minimo }})
+                    </p>
+                </div>
+                {% empty %}
+                <p class="text-gray-600">Ningún producto está bajo el stock mínimo.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

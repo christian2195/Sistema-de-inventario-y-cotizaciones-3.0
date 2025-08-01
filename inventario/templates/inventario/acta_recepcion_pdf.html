@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Acta de Recepción {{ acta_recepcion.numero_recepcion }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            margin: 0.5in;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 16pt;
+            margin: 0;
+            color: #2c5282;
+        }
+        .header h2 {
+            font-size: 12pt;
+            margin: 5px 0;
+            color: #4F81BD;
+        }
+        .info-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flow-root; /* Para flotar elementos dentro */
+        }
+        .info-item {
+            width: 48%; /* Aproximadamente la mitad */
+            float: left; /* Flotar a la izquierda */
+            margin-bottom: 5px;
+        }
+        .info-item:nth-child(even) {
+            float: right; /* El segundo elemento flota a la derecha */
+        }
+        .info-item strong {
+            display: inline-block;
+            width: 120px; /* Ancho fijo para las etiquetas */
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .details-table th, .details-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        .details-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+        }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 9pt;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .signatures {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        .signature-line {
+            width: 45%;
+            text-align: center;
+            border-top: 1px solid black;
+            padding-top: 5px;
+            margin-top: 30px;
+        }
+        .clear-float::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Acta de Recepción de Mercancía</h1>
+        <h2>Nro. Recepción: {{ acta_recepcion.numero_recepcion }}</h2>
+        <p>Fecha de Generación: {{ current_date }}</p>
+    </div>
+
+    <div class="info-box clear-float">
+        <div class="info-item"><strong>Proveedor:</strong> {{ acta_recepcion.proveedor.nombre|default:"N/A" }}</div>
+        <div class="info-item"><strong>Fecha de Recepción:</strong> {{ acta_recepcion.fecha_recepcion|date:"d/m/Y" }}</div>
+        <div class="info-item"><strong>Orden Asociada:</strong> {{ acta_recepcion.orden_asociada|default:"N/A" }}</div>
+        <div class="info-item"><strong>Ubicación Almacén:</strong> {{ acta_recepcion.ubicacion_almacen|default:"N/A" }}</div>
+        <div class="info-item"><strong>Estado Mercancía:</strong> {{ acta_recepcion.estado_mercancia|default:"N/A" }}</div>
+    </div>
+
+    <p><strong>Observaciones:</strong> {{ acta_recepcion.observaciones|default:"Sin observaciones." }}</p>
+
+    <table class="details-table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th>Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td>{{ detalle.nombre_producto_recepcion }}</td>
+                <td>{{ detalle.marca|default:"N/A" }}</td>
+                <td>{{ detalle.modelo|default:"N/A" }}</td>
+                <td>{{ detalle.cantidad }}</td>
+            </tr>
+            {% endfor %}
+            {% for i in empty_rows_range %}
+            <tr>
+                <td>&nbsp;</td> {# Celda vacía para espacio #}
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="3" style="text-align: right;">Total Cantidad:</th>
+                <th>{{ total_cantidad }}</th>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="info-box clear-float">
+        <div class="info-item"><strong>Nombre Conductor:</strong> {{ acta_recepcion.nombre_conductor|default:"N/A" }}</div>
+        <div class="info-item"><strong>C.I. Conductor:</strong> {{ acta_recepcion.ci_conductor|default:"N/A" }}</div>
+        <div class="info-item"><strong>Tipo de Vehículo:</strong> {{ acta_recepcion.tipo_vehiculo|default:"N/A" }}</div>
+        <div class="info-item"><strong>Color de Vehículo:</strong> {{ acta_recepcion.color_vehiculo|default:"N/A" }}</div>
+        <div class="info-item"><strong>Placa de Vehículo:</strong> {{ acta_recepcion.placa_vehiculo|default:"N/A" }}</div>
+    </div>
+
+    <div class="signatures clear-float">
+        <div class="signature-line">
+            <p>Firma y Sello Recibido por</p>
+            <p>C.I.:</p>
+        </div>
+        <div class="signature-line">
+            <p>Firma y Sello Entregado por</p>
+            <p>C.I.:</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>ENVEPRO - Sistema de Gestión de Inventario</p>
+        <p>Generado el {{ current_date }}</p>
+    </div>
+</body>
+</html>
