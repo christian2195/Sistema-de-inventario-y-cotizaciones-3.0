@@ -24,6 +24,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
 from .models import NotaDespacho # Or from your_app_name.models import NotaDespacho
+from weasyprint import HTML
 #from .forms import MovimientoForm
 
 # Para códigos de barras
@@ -62,19 +63,13 @@ class NotaDespachoForm(ModelForm):
     class Meta:
         model = NotaDespacho
         # Corrected to use 'orden_salida_referencia'
-        fields = ['cliente', 'orden_salida_referencia', 'proveedor', 'observaciones', 'nombre_conductor', 'ci_conductor', 'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo']
+        fields = ['cliente', 'orden_salida_referencia', 'proveedor','orden_asociada', 'observaciones', 'nombre_conductor', 'ci_conductor', 'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo']
 
 class DetalleNotaDespachoForm(ModelForm):
     class Meta:
         model = DetalleNotaDespacho
         # Added detalle_cotizacion_origen
         fields = ['producto', 'detalle_cotizacion_origen', 'nombre_producto_despacho', 'marca', 'modelo', 'cantidad']
-        widgets = {
-            # ...
-            'nombre_conductor': forms.TextInput(attrs={'class': 'block w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50'}),
-            'ci_conductor': forms.TextInput(attrs={'class': 'block w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50'}),
-            # ...
-        }
 
 class OrdenSalidaForm(ModelForm):
     class Meta:
@@ -954,7 +949,7 @@ def crear_o_editar_nota_despacho(request, pk=None):
                 new_details_map = {str(d.pk): d for d in saved_details if d.pk} # Map new/updated details by PK
 
                 # Actualizar/Crear/Eliminar detalles y ajustar stock
-                for form_data in formset.ordered_forms:
+                for form_data in formset.forms:
                     # Asegúrate de que 'producto' y 'cantidad' existan en cleaned_data
                     # y maneja los casos donde puedan ser None si el formulario no es válido completamente
                     producto_instance = form_data.cleaned_data.get('producto')
@@ -1095,7 +1090,7 @@ def generate_nota_despacho_pdf(request, pk):
         'total_cantidad': total_cantidad,
         'empty_rows_range': empty_rows_range,
         # Mapeo de campos del PDF a los campos del modelo
-        'beneficiario': nota_despacho.beneficiario, # Ahora es un CharField directo
+        'cliente_data': nota_despacho.cliente.nombre, # Ahora es un CharField directo
         'proveedor_nombre': nota_despacho.proveedor.nombre if nota_despacho.proveedor else 'N/A', # Accede al nombre del proveedor
         # Los detalles del conductor/transportista ya están directamente en nota_despacho
         'nombre_conductor': nota_despacho.nombre_conductor,

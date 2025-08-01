@@ -91,7 +91,7 @@
         <a href="{% url 'inventario:nota_despacho_list' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Volver a la Lista</a>
         <a href="{% url 'inventario:nota_despacho_update' nota_despacho.pk %}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Editar</a>
         <a href="{% url 'inventario:nota_despacho_delete' nota_despacho.pk %}" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mr-2">Eliminar</a>
-        <a href="{% url 'inventario:export_nota_despacho_pdf' nota_despacho.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">Exportar PDF</a>
+        <a href="{% url 'inventario:generate_nota_despacho_pdf' nota_despacho.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">Exportar PDF</a>
     </div>
 </div>
 {% endblock %}

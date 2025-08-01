@@ -76,21 +76,21 @@
     </div>
 
     <table class="info-table">
-        <tr>
-            <td><strong>Nro. Despacho:</strong> {{ nota_despacho.numero_despacho|default:nota_despacho.pk }}</td>
-            <td><strong>Fecha de Despacho:</strong> {{ nota_despacho.fecha_despacho|date:"d/m/Y" }}</td>
-        </tr>
-        <tr>
-            <td><strong>Beneficiario:</strong> {{ nota_despacho.beneficiario }}</td>
-            <td><strong>N° Orden Asociada:</strong> {{ nota_despacho.orden_salida.numero_orden|default:"N/A" }}</td>
-        </tr>
-        <tr>
-            <td colspan="2"><strong>Proveedor:</strong> {{ proveedor_nombre }}</td>
-        </tr>
-        <tr>
-            <td colspan="2"><strong>Observaciones:</strong> {{ nota_despacho.observaciones|default:"Ninguna" }}</td>
-        </tr>
-    </table>
+    <tr>
+        <td><strong>Nro. Despacho:</strong> {{ nota_despacho.numero_despacho|default:nota_despacho.pk }}</td>
+        <td><strong>Fecha de Despacho:</strong> {{ nota_despacho.fecha_despacho|date:"d/m/Y" }}</td>
+    </tr>
+    <tr>
+        <td><strong>Beneficiario:</strong> {{ nota_despacho.cliente.nombre }}</td> {# CORREGIDO: Usar el objeto cliente y su nombre #}
+        <td><strong>N° Orden Asociada:</strong> {{ nota_despacho.orden_asociada.numero_orden|default:"N/A" }}</td> {# REVISA: Asegúrate que 'orden_asociada' es el campo correcto y tiene 'numero_orden' #}
+    </tr>
+    <tr>
+        <td colspan="2"><strong>Proveedor:</strong> {{ proveedor_nombre }}</td>
+    </tr>
+    <tr>
+        <td colspan="2"><strong>Observaciones:</strong> {{ nota_despacho.observaciones|default:"Ninguna" }}</td>
+    </tr>
+</table>
 
     <h3>ITEMS</h3>
     <table class="details-table">
@@ -168,7 +168,13 @@
     </div>
 
     <div class="footer">
-        <p>ELABORADO POR: {{ nota_despacho.creado_por.get_full_name|default:nota_despacho.creado_por.username }}</p>
+        <p>ELABORADO POR:
+            {% if nota_despacho.creado_por %} {# Verifica si el campo creado_por no es None #}
+                {{ nota_despacho.creado_por.get_full_name|default:nota_despacho.creado_por.username }}
+            {% else %}
+                N/A {# Muestra "N/A" si el campo es None #}
+            {% endif %}
+        </p>
     </div>
 </body>
 </html>

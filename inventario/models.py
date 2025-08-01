@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 import uuid # Asegúrate de que uuid esté importado aquí
-
+from django.conf import settings
 # Función helper para generación de números secuenciales
 def generar_numero_secuencial(prefix, last_instance, field_name='numero'):
     if last_instance:
@@ -221,6 +221,14 @@ class NotaDespacho(models.Model):
     color_vehiculo = models.CharField(max_length=50, blank=True, verbose_name="Color del Vehículo")
     placa_vehiculo = models.CharField(max_length=20, blank=True, verbose_name="Placa del Vehículo")
     
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, # Si el usuario se elimina, este campo se pone a NULL
+        null=True,                 # Permite que el campo sea nulo en la base de datos
+        blank=True,                # Permite que el campo sea opcional en formularios
+        related_name='notas_despacho_creadas', # Nombre para la relación inversa
+        verbose_name="Creado por"
+    )
     orden_salida_referencia = models.ForeignKey(
         'OrdenSalida',
         on_delete=models.SET_NULL,
@@ -237,7 +245,7 @@ class NotaDespacho(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Nota de Despacho {self.numero_despacho} - {self.beneficiario}"
+        return f"Nota de Despacho {self.numero_despacho} - {self.cliente}"
 
     class Meta:
         verbose_name = "Nota de Despacho"
