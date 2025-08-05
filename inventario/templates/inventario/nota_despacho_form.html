@@ -241,7 +241,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <div class="flex justify-end space-x-4 mt-6">
                 <a href="{% url 'inventario:nota_despacho_list' %}" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Cancelar</a>
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
@@ -250,7 +250,89 @@
             </div>
         </form>
     </div>
+    {# Errores NO-FIELD para el formset completo (ej. error en total_forms, initial_forms) #}
+{% if detalle_formset.non_form_errors %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold">¡Errores globales en los detalles de productos!</strong>
+        <ul>
+            {% for error in detalle_formset.non_form_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
 
+    <div id="despached-items-container" class="space-y-4">
+    {# Este bucle itera sobre los formularios individuales del formset #}
+    {% for form in detalle_formset %}
+    <div class="product-card" data-form-id="{{ form.instance.pk|default:'new' }}">
+            {# Errores NO-FIELD para este formulario de detalle específico #}
+            {% if form.non_field_errors %}
+    <div class="text-red-600 text-sm mt-1 mb-2">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+    </div>
+            {% endif %}
+
+            {# Campos del formulario de detalle #}
+        <div class="flex-grow">
+        <p class="font-semibold">
+            {# Prioriza nombre_producto_despacho, si no, usa producto.nombre si existe #}
+            {% if form.nombre_producto_despacho.value %}
+                {{ form.nombre_producto_despacho.value }}
+            {% elif form.instance.producto %}
+                {{ form.instance.producto.nombre }}
+            {% endif %}
+        </p>
+        <p class="text-sm text-gray-600">
+            {# Prioriza marca del formulario, si no, usa producto.marca si existe #}
+            {% if form.marca.value %}
+                {{ form.marca.value }}
+            {% elif form.instance.producto %}
+                {{ form.instance.producto.marca }}
+            {% endif %}
+            {# Prioriza modelo del formulario, si no, usa producto.modelo si existe #}
+            {% if form.modelo.value %}
+                - {{ form.modelo.value }}
+            {% elif form.instance.producto %}
+                - {{ form.instance.producto.modelo }}
+            {% endif %}
+        </p>
+    </div>
+    <div class="flex items-center space-x-2">
+                <label for="{{ form.cantidad.id_for_label }}" class="sr-only">Cantidad:</label>
+                {{ form.cantidad }} {# Esto renderizará el campo de cantidad con su input #}
+
+                {# Errores específicos del campo 'cantidad' #}
+                {% if form.cantidad.errors %}
+     <div class="text-red-600 text-sm mt-1">
+                        {% for error in form.cantidad.errors %}
+                            {{ error }}
+                        {% endfor %}
+     </div>
+                {% endif %}
+
+                {# Renderiza los campos ocultos del formset, como el id y DELETE #}
+                {{ form.id }}
+                {{ form.DELETE }}
+                {{ form.producto }} {# Si 'producto' es un campo oculto #}
+                {# Otros campos ocultos como nombre_producto_despacho, marca, modelo si los tienes #}
+                {{ form.nombre_producto_despacho }}
+                {{ form.marca }}
+                {{ form.modelo }}
+                {{ form.detalle_cotizacion_origen }}
+
+
+                <button type="button" class="remove-item-button bg-red-500 text-white rounded-full p-2 hover:bg-red-600">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zm2 3a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+    </div>
+    </div>
+    {% endfor %}
+    </div>
    <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('nota-despacho-form');
@@ -489,7 +571,7 @@
             }
 
             // Función para preparar el formset de Django antes de enviar el formulario
-            form.addEventListener('submit', function(event) {
+form.addEventListener('submit', function(event) {
                 // Prevenir el envío por defecto para manipular el formset
                 event.preventDefault();
 
@@ -497,21 +579,21 @@
                 document.querySelectorAll('.dynamic-formset-field').forEach(input => input.remove());
 
                 let formIdx = 0;
-                let initialFormsCount = 0;
-                let totalFormsToKeep = 0;
+                let initialFormsCount = 0; // <--- Esta variable
+                let totalFormsToKeep = 0; // Esta no es necesaria para los campos de gestión del formset
 
                 for (const productId in despachedItems) {
                     const item = despachedItems[productId];
 
                     // Campo ID (solo para ítems existentes)
-                    if (item.originalPk) {
+                    if (item.originalPk) { // Si el ítem ya existía en la BD
                         const idInput = document.createElement('input');
                         idInput.type = 'hidden';
                         idInput.name = `detalles-${formIdx}-id`;
                         idInput.value = item.originalPk;
                         idInput.classList.add('dynamic-formset-field');
                         form.appendChild(idInput);
-                        initialFormsCount++;
+                        initialFormsCount++; // ¡Incrementar aquí!
                     }
 
                     // Campo DELETE
@@ -524,6 +606,7 @@
 
                     // Si el ítem NO está marcado para eliminación, añadir sus otros campos
                     if (!item.isDeleted) {
+                        // ... (el resto de tus campos ocultos: producto, nombre_producto_despacho, marca, modelo, cantidad) ...
                         const productInput = document.createElement('input');
                         productInput.type = 'hidden';
                         productInput.name = `detalles-${formIdx}-producto`;
@@ -533,7 +616,7 @@
 
                         const nameInput = document.createElement('input');
                         nameInput.type = 'hidden';
-                        nameInput.name = `detalles-${formIdx}-nombre_producto_despacho`; // Nombre del campo del modelo
+                        nameInput.name = `detalles-${formIdx}-nombre_producto_despacho`;
                         nameInput.value = item.name;
                         nameInput.classList.add('dynamic-formset-field');
                         form.appendChild(nameInput);
@@ -554,21 +637,33 @@
 
                         const quantityInput = document.createElement('input');
                         quantityInput.type = 'hidden';
-                        quantityInput.name = `detalles-${formIdx}-cantidad`; // Nombre del campo del modelo (corregido de cantidad_despachada)
+                        quantityInput.name = `detalles-${formIdx}-cantidad`;
                         quantityInput.value = item.quantity;
                         quantityInput.classList.add('dynamic-formset-field');
                         form.appendChild(quantityInput);
 
-                        totalFormsToKeep++;
+                        // Asegúrate de que este campo esté presente si lo usas en el modelo
+                        const detalleCotizacionOrigenInput = document.createElement('input');
+                        detalleCotizacionOrigenInput.type = 'hidden';
+                        detalleCotizacionOrigenInput.name = `detalles-${formIdx}-detalle_cotizacion_origen`;
+                        detalleCotizacionOrigenInput.value = item.detalleCotizacionOrigen || ''; // Asume que lo tienes en 'item' si es relevante
+                        detalleCotizacionOrigenInput.classList.add('dynamic-formset-field');
+                        form.appendChild(detalleCotizacionOrigenInput);
                     }
                     formIdx++; // Incrementar el índice para el siguiente formulario del formset
                 }
 
                 // Actualizar los campos de gestión del formset
                 document.getElementById('id_detalles-TOTAL_FORMS').value = formIdx;
-                document.getElementById('id_detalles-INITIAL_FORMS').value = initialDetalles.length;
-                // No actualizamos MIN_NUM_FORMS ni MAX_NUM_FORMS ya que son fijos o controlados por Django en el backend.
-
+                document.getElementById('id_detalles-INITIAL_FORMS').value = initialFormsCount; // <--- ¡CAMBIO AQUÍ!
+                // Los campos MIN_NUM_FORMS y MAX_NUM_FORMS no necesitan actualización aquí
+                // >>> AÑADE ESTE BLOQUE DE CÓDIGO AQUÍ <<<
+                console.log('--- Datos de Formulario y Formset a enviar ---');
+                const formData = new FormData(form); // Crea un objeto FormData con todos los campos del formulario
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value}`);
+                }
+                console.log('--- Fin de Datos a enviar ---');
                 // Finalmente, enviar el formulario
                 form.submit();
             });

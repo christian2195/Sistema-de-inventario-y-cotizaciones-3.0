@@ -10,7 +10,7 @@
             <div>
                 <p class="text-gray-700"><strong class="font-semibold">Nro. Cotización:</strong> {{ cotizacion.numero_cotizacion }}</p>
                 <p class="text-gray-700"><strong class="font-semibold">Cliente:</strong> {{ cotizacion.cliente.nombre|default:"N/A" }}</p>
-                <p class="text-gray-700"><strong class="font-semibold">Fecha Creación:</strong> {{ cotizacion.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                <p class="text-gray-700"><strong class="font-semibold">Fecha Creación:</strong> {{ cotizacion.fecha_creacion|date:"d/m/Y" }}</p>
                 <p class="text-gray-700"><strong class="font-semibold">Fecha Validez:</strong> {{ cotizacion.fecha_validez|date:"d/m/Y"|default:"N/A" }}</p>
             </div>
             <div>

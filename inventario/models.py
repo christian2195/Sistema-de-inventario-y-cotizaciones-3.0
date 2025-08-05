@@ -89,6 +89,16 @@ class Producto(models.Model):
 
     def necesita_reabastecimiento(self):
         return self.cantidad < self.stock_minimo
+    
+    def clean(self):
+        if self.cantidad < 0:
+            raise ValidationError("La cantidad en stock no puede ser negativa")
+        
+    def descontar_stock(self, cantidad_a_descontar):
+        if self.cantidad < cantidad_a_descontar:
+            raise ValidationError(f"Stock insuficiente para {self.nombre}")
+        self.cantidad -= cantidad_a_descontar
+        self.save()
 
     class Meta:
         verbose_name = "Producto"
@@ -426,19 +436,33 @@ class Cotizacion(models.Model):
             raise ValidationError("La fecha de validez no puede ser en el pasado")
 
     def save(self, *args, **kwargs):
+        estado_anterior = None
+        if self.pk:
+            estado_anterior = Cotizacion.objects.get(pk=self.pk).estado
+
         if not self.numero_cotizacion:
             last_cotizacion = Cotizacion.objects.all().order_by('-id').first()
             self.numero_cotizacion = generar_numero_secuencial('C', last_cotizacion, 'numero_cotizacion')
+        
         super().save(*args, **kwargs)
+
+        if estado_anterior != self.estado and self.estado in ['aceptada', 'en_despacho']:
+            self.descontar_stock()
+
+    def descontar_stock(self):
+        for detalle in self.detalles.select_related('producto'):
+            producto = detalle.producto
+            if producto:
+                if producto.cantidad < detalle.cantidad:
+                    raise ValidationError(f"Stock insuficiente para el producto {producto.nombre}")
+                producto.cantidad -= detalle.cantidad
+                producto.save()
 
     def porcentaje_entregado(self):
         detalles = self.detalles.all()
-        if not detalles:
-            return 0
         total_cantidad = sum(d.cantidad for d in detalles)
-        if total_cantidad == 0:
-            return 0
-        return sum(d.cantidad_entregada for d in detalles) / total_cantidad * 100
+        entregado = sum(d.cantidad_entregada for d in detalles)
+        return (entregado / total_cantidad * 100) if total_cantidad else 0
     
     def productos_pendientes(self):
         """Devuelve los detalles de cotización con cantidades pendientes por entregar"""
@@ -455,6 +479,7 @@ class Cotizacion(models.Model):
         verbose_name_plural = "Cotizaciones"
         ordering = ['-fecha_creacion']
 
+
 # Modelo: DetalleCotizacion
 class DetalleCotizacion(models.Model):
     cotizacion = models.ForeignKey(Cotizacion, on_delete=models.CASCADE, related_name='detalles')
@@ -468,15 +493,16 @@ class DetalleCotizacion(models.Model):
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subtotal")
 
     def save(self, *args, **kwargs):
-        if not self.nombre_producto_cotizado and self.producto:
-            self.nombre_producto_cotizado = self.producto.nombre
-        if not self.marca and self.producto:
-            self.marca = self.producto.marca
-        if not self.modelo and self.producto:
-            self.modelo = self.producto.modelo
-        if self.producto and not self.precio_unitario:
-            self.precio_unitario = self.producto.precio
-        if self.cantidad is not None and self.precio_unitario is not None:
+        if self.producto:
+            if not self.nombre_producto_cotizado:
+                self.nombre_producto_cotizado = self.producto.nombre
+            if not self.marca:
+                self.marca = self.producto.marca
+            if not self.modelo:
+                self.modelo = self.producto.modelo
+            if not self.precio_unitario:
+                self.precio_unitario = self.producto.precio
+        if self.cantidad and self.precio_unitario:
             self.subtotal = self.cantidad * self.precio_unitario
         super().save(*args, **kwargs)
 
@@ -486,6 +512,7 @@ class DetalleCotizacion(models.Model):
     class Meta:
         verbose_name = "Detalle de Cotización"
         verbose_name_plural = "Detalles de Cotizaciones"
+
 
 # Modelo: PagoProveedor
 class PagoProveedor(models.Model):
@@ -525,13 +552,18 @@ def actualizar_estado_cotizacion(sender, instance, **kwargs):
 
 @receiver(post_save, sender=OrdenSalida)
 def create_nota_despacho_from_order(sender, instance, created, **kwargs):
+    try:
+        cliente_nombre = instance.cliente  # ← esto es un string
+        cliente_obj = Cliente.objects.get(nombre=cliente_nombre)
+    except Cliente.DoesNotExist:
+        raise ValueError(f"No se encontró un cliente con nombre '{cliente_nombre}'")
+
     if created and not instance.nota_despacho_asociada:
         with transaction.atomic():
             # 1. Crear la NotaDespacho
             nota_despacho = NotaDespacho.objects.create(
-                beneficiario=instance.cliente,
-                orden_salida_referencia=instance,
-                proveedor=instance.cotizacion_origen.proveedor if instance.cotizacion_origen else None
+                cliente=cliente_obj,
+                orden_salida_referencia=instance
             )
             instance.nota_despacho_asociada = nota_despacho
             instance.save(update_fields=['nota_despacho_asociada'])

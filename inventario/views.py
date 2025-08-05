@@ -925,6 +925,7 @@ def crear_o_editar_nota_despacho(request, pk=None):
     nota_despacho = None
     if pk:
         nota_despacho = get_object_or_404(NotaDespacho, pk=pk)
+        
 
     if request.method == 'POST':
         form = NotaDespachoForm(request.POST, instance=nota_despacho)
@@ -1032,12 +1033,14 @@ def crear_o_editar_nota_despacho(request, pk=None):
         'detalle_formset': formset,
         'all_products_json': all_products_json, # Cambiado a all_products_json para coincidir con la plantilla
         'initial_dispatch_items_json': initial_detalles_json, # Cambiado a initial_dispatch_items_json para coincidir con la plantilla
+        'nota_despacho': nota_despacho,
     }
     return render(request, 'inventario/nota_despacho_form.html', context)
 
 
 def crear_nota_despacho(request):
     return crear_o_editar_nota_despacho(request)
+
 
 def editar_nota_despacho(request, pk):
     return crear_o_editar_nota_despacho(request, pk)
@@ -1105,6 +1108,10 @@ def generate_nota_despacho_pdf(request, pk):
     # Renderiza la plantilla HTML a una cadena
     template = get_template('inventario/nota_despacho_pdf.html')
     html_string = template.render(context)
+    # 🔍 LÍNEAS DE DEPURACIÓN
+    print("Nota de Despacho:", nota_despacho)
+    print("Cantidad de Detalles:", detalles.count())
+    print("Primeros 500 caracteres del HTML generado:\n", html_string[:500])
 
     # Crea la respuesta HTTP con tipo de contenido PDF
     response = HttpResponse(content_type='application/pdf')
