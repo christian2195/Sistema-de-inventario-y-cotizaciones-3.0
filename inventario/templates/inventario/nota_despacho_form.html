@@ -1,7 +1,7 @@
 {# inventario/templates/inventario/nota_despacho_form.html #}
 
 {% extends 'inventario/base.html' %}
-{% load inventario_filters %} {# Asegúrate de que este filtro esté cargado si lo usas en el futuro #}
+{% load inventario_filters %}
 
 {% block title %}
     {% if form.instance.pk %}Editar Nota de Despacho{% else %}Crear Nota de Despacho{% endif %}
@@ -16,10 +16,8 @@
         <form method="post" id="nota-despacho-form" class="space-y-6">
             {% csrf_token %}
 
-            {# Django Management Form - Se mantendrá oculto y se actualizará por JS #}
             {{ detalle_formset.management_form }}
 
-            {# Errores globales del formulario principal #}
             {% if form.errors %}
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                     <strong class="font-bold">¡Error!</strong>
@@ -36,7 +34,6 @@
                 </div>
             {% endif %}
 
-            {# Errores del formset (si hay, aunque los detalles se manejan por JS) #}
             {% if detalle_formset.errors %}
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                     <strong class="font-bold">¡Error en los detalles!</strong>
@@ -55,10 +52,22 @@
 
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {# Columna Izquierda: Información General de la Nota de Despacho #}
                 <div class="bg-gray-50 p-6 rounded-lg shadow-inner space-y-4">
                     <h2 class="text-xl font-semibold mb-4 text-green-700">Datos Generales de la Nota</h2>
-
+                    
+                    <div class="mb-4">
+                        <label for="cotizacion-selector" class="block text-gray-700 text-sm font-bold mb-2">
+                            Cargar Productos desde Cotización:
+                        </label>
+                        <select id="cotizacion-selector" class="block w-full border border-gray-300 rounded-md py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                            <option value="">--- Seleccione una cotización ---</option>
+                            {% for cotizacion in cotizaciones %}
+                                <option value="{{ cotizacion.pk }}">
+                                    {{ cotizacion.numero_cotizacion }} (Cliente: {{ cotizacion.cliente.nombre }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <div>
                         <label for="{{ form.numero_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
                             {{ form.numero_despacho.label }}
@@ -79,10 +88,9 @@
                         {% endfor %}
                     </div>
 
-                    {# Campos que vuelven a ser gestionados por Django Forms #}
                     <div>
                         <label for="{{ form.cliente.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            Nombre del Beneficiario: {# Etiqueta ajustada para claridad #}
+                            Nombre del Beneficiario:
                         </label>
                         {{ form.cliente }}
                         {% for error in form.cliente.errors %}
@@ -92,7 +100,7 @@
 
                     <div>
                         <label for="{{ form.proveedor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.proveedor.label }}: {# Campo Proveedor #}
+                            {{ form.proveedor.label }}:
                         </label>
                         {{ form.proveedor }}
                         {% for error in form.proveedor.errors %}
@@ -102,7 +110,7 @@
 
                     <div>
                         <label for="{{ form.orden_asociada.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.orden_asociada.label }}: {# Campo N° Orden Asociada #}
+                            {{ form.orden_asociada.label }}:
                         </label>
                         {{ form.orden_asociada }}
                         {% for error in form.orden_asociada.errors %}
@@ -161,13 +169,12 @@
                                     <p class="text-red-500 text-xs italic">{{ error }}</p>
                                 {% endfor %}
                             </div>
-                            {# Campos del conductor que vuelven a ser gestionados por Django Forms #}
                             <div>
                                 <label for="{{ form.nombre_conductor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
                                     Nombre del Conductor:
                                 </label>
-                                 {{ form.nombre_conductor }} {# <--- ¡CORREGIDO! #}
-                        {% for error in form.nombre_conductor.errors %}
+                                 {{ form.nombre_conductor }}
+                                {% for error in form.nombre_conductor.errors %}
                                     <p class="text-red-500 text-xs italic">{{ error }}</p>
                                 {% endfor %}
                             </div>
@@ -175,7 +182,7 @@
                                 <label for="{{ form.ci_conductor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
                                     C.I. del Conductor:
                                 </label>
-                        {{ form.ci_conductor }} {# <--- ¡CORREGIDO! #}
+                        {{ form.ci_conductor }}
                             {% for error in form.ci_conductor.errors %}
                                         <p class="text-red-500 text-xs italic">{{ error }}</p>
                                 {% endfor %}
@@ -211,23 +218,18 @@
                     </div>
                 </div>
 
-                {# Columna Derecha: Selección de Productos y Carrito de Despacho #}
                 <div class="bg-green-50 p-6 rounded-lg shadow-inner flex flex-col h-full">
                     <h2 class="text-xl font-semibold mb-4 text-green-700">Productos a Despachar</h2>
 
-                    {# Área de búsqueda de productos #}
                     <div class="mb-4">
                         <input type="text" id="product-search" placeholder="Buscar producto por nombre o SKU..." class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                     </div>
 
-                    {# Lista de productos disponibles #}
                     <div id="product-selection-list" class="flex-grow overflow-y-auto border border-gray-200 rounded-md p-2 mb-4 max-h-96">
-                        {# Los productos se renderizarán aquí con JS #}
                         <p class="text-gray-600 text-center" id="no-products-message">Cargando productos...</p>
                     </div>
 
                     <h3 class="text-lg font-semibold mb-3 text-green-700 border-t pt-4">Ítems en Nota de Despacho</h3>
-                    {# Lista de ítems despachados (el "carrito") #}
                     <div id="despached-items-list" class="flex-grow overflow-y-auto border border-gray-200 rounded-md p-2 mb-4 min-h-[150px]">
                         <p class="text-gray-600 text-center" id="empty-despached-message">No hay productos en la nota de despacho.</p>
                     </div>
@@ -250,7 +252,6 @@
             </div>
         </form>
     </div>
-    {# Errores NO-FIELD para el formset completo (ej. error en total_forms, initial_forms) #}
 {% if detalle_formset.non_form_errors %}
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
         <strong class="font-bold">¡Errores globales en los detalles de productos!</strong>
@@ -263,10 +264,8 @@
 {% endif %}
 
     <div id="despached-items-container" class="space-y-4">
-    {# Este bucle itera sobre los formularios individuales del formset #}
     {% for form in detalle_formset %}
     <div class="product-card" data-form-id="{{ form.instance.pk|default:'new' }}">
-            {# Errores NO-FIELD para este formulario de detalle específico #}
             {% if form.non_field_errors %}
     <div class="text-red-600 text-sm mt-1 mb-2">
                     {% for error in form.non_field_errors %}
@@ -275,10 +274,8 @@
     </div>
             {% endif %}
 
-            {# Campos del formulario de detalle #}
         <div class="flex-grow">
         <p class="font-semibold">
-            {# Prioriza nombre_producto_despacho, si no, usa producto.nombre si existe #}
             {% if form.nombre_producto_despacho.value %}
                 {{ form.nombre_producto_despacho.value }}
             {% elif form.instance.producto %}
@@ -286,13 +283,11 @@
             {% endif %}
         </p>
         <p class="text-sm text-gray-600">
-            {# Prioriza marca del formulario, si no, usa producto.marca si existe #}
             {% if form.marca.value %}
                 {{ form.marca.value }}
             {% elif form.instance.producto %}
                 {{ form.instance.producto.marca }}
             {% endif %}
-            {# Prioriza modelo del formulario, si no, usa producto.modelo si existe #}
             {% if form.modelo.value %}
                 - {{ form.modelo.value }}
             {% elif form.instance.producto %}
@@ -302,9 +297,7 @@
     </div>
     <div class="flex items-center space-x-2">
                 <label for="{{ form.cantidad.id_for_label }}" class="sr-only">Cantidad:</label>
-                {{ form.cantidad }} {# Esto renderizará el campo de cantidad con su input #}
-
-                {# Errores específicos del campo 'cantidad' #}
+                {{ form.cantidad }}
                 {% if form.cantidad.errors %}
      <div class="text-red-600 text-sm mt-1">
                         {% for error in form.cantidad.errors %}
@@ -313,11 +306,9 @@
      </div>
                 {% endif %}
 
-                {# Renderiza los campos ocultos del formset, como el id y DELETE #}
                 {{ form.id }}
                 {{ form.DELETE }}
-                {{ form.producto }} {# Si 'producto' es un campo oculto #}
-                {# Otros campos ocultos como nombre_producto_despacho, marca, modelo si los tienes #}
+                {{ form.producto }}
                 {{ form.nombre_producto_despacho }}
                 {{ form.marca }}
                 {{ form.modelo }}
@@ -343,28 +334,21 @@
             const emptyDespachedMessage = document.getElementById('empty-despached-message');
             const noProductsMessage = document.getElementById('no-products-message');
             const clearDespachedBtn = document.getElementById('clear-despached-btn');
+            const cotizacionSelector = document.getElementById('cotizacion-selector');
 
-            // Datos de productos pasados desde el contexto de Django
+
             const allProducts = JSON.parse('{{ all_products_json|escapejs }}');
-            // Datos iniciales de los detalles de la nota de despacho (si es una edición)
             const initialDetalles = JSON.parse('{{ initial_dispatch_items_json|escapejs }}');
 
-            // --- ¡AÑADIDO PARA DEPURACIÓN! ---
             console.log('Productos cargados (allProducts):', allProducts);
             console.log('Detalles iniciales (initialDetalles):', initialDetalles);
-            // --- FIN DE LA DEPURACIÓN ---
 
-            // Mapea los IDs de productos a sus detalles para una búsqueda rápida
             const productMap = {};
             allProducts.forEach(p => {
                 productMap[p.id] = p;
             });
 
-            // Objeto para gestionar los ítems actualmente en el "carrito" de despacho
-            // { productId: { name, brand, model, quantity, originalPk (if exists), isDeleted (for existing items), currentStock } }
             const despachedItems = {};
-
-            // --- Funciones de Renderizado ---
 
             function renderProductList(filterText = '') {
                 productSelectionList.innerHTML = '';
@@ -394,7 +378,7 @@
                     `;
                     productSelectionList.appendChild(productCard);
                 });
-                noProductsMessage.style.display = 'none'; // Ocultar mensaje de "cargando"
+                noProductsMessage.style.display = 'none';
             }
 
             function renderDespachedItems() {
@@ -404,7 +388,7 @@
 
                 for (const productId in despachedItems) {
                     const item = despachedItems[productId];
-                    if (item.isDeleted) continue; // No renderizar ítems marcados para eliminación
+                    if (item.isDeleted) continue;
 
                     hasVisibleItems = true;
                     totalItemsCount += item.quantity;
@@ -425,8 +409,6 @@
                 emptyDespachedMessage.style.display = hasVisibleItems ? 'none' : 'block';
                 totalDespachedItemsSpan.textContent = totalItemsCount;
             }
-
-            // --- Lógica de Eventos ---
 
             productSearchInput.addEventListener('input', function() {
                 renderProductList(this.value);
@@ -449,16 +431,9 @@
                         return;
                     }
 
-                    // Validación de stock antes de añadir
-                    const currentStock = parseFloat(product.cantidad);
-
-                    // Calcular el stock disponible real, considerando si el producto ya está en el carrito
-                    let availableStock = currentStock;
+                    let availableStock = parseFloat(product.cantidad);
                     if (despachedItems[productId] && !despachedItems[productId].isDeleted) {
-                        // Si el producto ya está en el carrito (y no está marcado para eliminación),
-                        // su cantidad actual en el carrito ya está "reservada" del stock total del producto.
-                        // Para añadir más, el stock disponible es el stock actual del producto menos lo que ya está en el carrito.
-                        availableStock = currentStock - despachedItems[productId].quantity;
+                        availableStock = parseFloat(product.cantidad) + despachedItems[productId].originalQuantity;
                     }
 
                     if (quantity > availableStock) {
@@ -466,25 +441,23 @@
                         return;
                     }
 
-                    // Si el producto ya está en la lista de despachados, actualiza la cantidad
                     if (despachedItems[productId]) {
                         despachedItems[productId].quantity += quantity;
-                        despachedItems[productId].isDeleted = false; // Si se había marcado para eliminación, desmarcar
+                        despachedItems[productId].isDeleted = false;
                     } else {
-                        // Si no está, añádelo
                         despachedItems[productId] = {
                             name: product.nombre,
                             brand: product.marca,
                             model: product.modelo,
                             quantity: quantity,
-                            originalPk: null, // Se llenará si es un ítem existente en la edición
-                            originalQuantity: 0, // Cantidad original para cálculo de stock en edición
+                            originalPk: null,
+                            originalQuantity: 0,
                             isDeleted: false,
-                            currentStock: currentStock // Almacena el stock actual para futuras validaciones
+                            currentStock: parseFloat(product.cantidad)
                         };
                     }
                     renderDespachedItems();
-                    quantityInput.value = 1; // Resetear cantidad a 1 después de añadir
+                    quantityInput.value = 1;
                 }
             });
 
@@ -493,17 +466,13 @@
                     const productId = parseInt(event.target.dataset.productId);
                     let newQuantity = parseInt(event.target.value);
                     const currentStock = parseFloat(event.target.dataset.currentStock);
-                    const originalQuantity = parseFloat(event.target.dataset.originalQuantity); // Cantidad que ya estaba en la nota (si es edición)
+                    const originalQuantity = parseFloat(event.target.dataset.originalQuantity);
 
                     if (isNaN(newQuantity) || newQuantity <= 0) {
                         newQuantity = 1;
                         event.target.value = 1;
                     }
-
-                    // Calcular el stock disponible para este producto.
-                    // Si el ítem es uno que ya existía en la nota (originalPk), su cantidad original
-                    // ya está "descontada" del currentStock del producto. Para la validación,
-                    // "reponemos" esa cantidad original para ver el stock total disponible.
+                    
                     let effectiveStock = currentStock;
                     if (despachedItems[productId] && despachedItems[productId].originalPk) {
                         effectiveStock = currentStock + originalQuantity;
@@ -511,12 +480,12 @@
 
                     if (newQuantity > effectiveStock) {
                         alert(`No hay suficiente stock para despachar ${newQuantity} unidades de este producto. Stock disponible: ${effectiveStock}.`);
-                        event.target.value = despachedItems[productId].quantity; // Revierte al valor anterior
+                        event.target.value = despachedItems[productId].quantity;
                         return;
                     }
 
                     despachedItems[productId].quantity = newQuantity;
-                    renderDespachedItems(); // Re-renderizar para actualizar el total
+                    renderDespachedItems();
                 }
             });
 
@@ -525,10 +494,8 @@
                     const productId = parseInt(event.target.dataset.productId);
 
                     if (despachedItems[productId].originalPk) {
-                        // Si es un ítem existente, marcar para eliminación
                         despachedItems[productId].isDeleted = true;
                     } else {
-                        // Si es un ítem nuevo, simplemente eliminarlo del objeto
                         delete despachedItems[productId];
                     }
                     renderDespachedItems();
@@ -548,9 +515,60 @@
                 }
             });
 
-            // --- Lógica de Inicialización y Envío del Formulario ---
+            // --- Lógica para cargar productos desde una cotización ---
+            cotizacionSelector.addEventListener('change', function() {
+                const cotizacionId = this.value;
+                if (!cotizacionId) {
+                    clearDespachedItems();
+                    return;
+                }
 
-            // Cargar ítems existentes al iniciar la página (modo edición)
+                fetch(`/inventario/get-productos-from-cotizacion/${cotizacionId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            clearDespachedItems();
+
+                            data.productos.forEach(p => {
+                                const productId = p.id;
+                                const currentStock = parseFloat(productMap[productId].cantidad);
+
+                                if (p.quantity > currentStock) {
+                                    alert(`Advertencia: No hay suficiente stock para ${p.name}. Stock disponible: ${currentStock}.`);
+                                    return;
+                                }
+
+                                despachedItems[productId] = {
+                                    name: p.name,
+                                    brand: p.brand,
+                                    model: p.model,
+                                    quantity: p.quantity,
+                                    originalPk: null,
+                                    originalQuantity: 0,
+                                    isDeleted: false,
+                                    currentStock: currentStock,
+                                    detalleCotizacionOrigen: p.detalleCotizacionOrigenPk,
+                                };
+                            });
+
+                            renderDespachedItems();
+                        } else {
+                            alert(`Error al cargar la cotización: ${data.error}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error en la llamada AJAX:', error);
+                        alert('Ocurrió un error inesperado al cargar la cotización.');
+                    });
+            });
+
+            function clearDespachedItems() {
+                for (const productId in despachedItems) {
+                    delete despachedItems[productId];
+                }
+                renderDespachedItems();
+            }
+
             function loadInitialDetalles() {
                 initialDetalles.forEach(detalle => {
                     const productId = detalle.producto;
@@ -559,44 +577,39 @@
                             name: detalle.nombre_producto_despacho || productMap[productId].nombre,
                             brand: detalle.marca || productMap[productId].marca,
                             model: detalle.modelo || productMap[productId].modelo,
-                            quantity: detalle.cantidad, // La cantidad es la cantidad_despachada
+                            quantity: detalle.cantidad,
                             originalPk: detalle.id,
-                            originalQuantity: detalle.cantidad, // Guardar la cantidad original para cálculos de stock
+                            originalQuantity: detalle.cantidad,
                             isDeleted: false,
-                            currentStock: parseFloat(productMap[productId].cantidad) // Stock actual del producto
+                            currentStock: parseFloat(productMap[productId].cantidad),
+                            detalleCotizacionOrigen: detalle.detalle_cotizacion_origen
                         };
                     }
                 });
                 renderDespachedItems();
             }
 
-            // Función para preparar el formset de Django antes de enviar el formulario
-form.addEventListener('submit', function(event) {
-                // Prevenir el envío por defecto para manipular el formset
+            form.addEventListener('submit', function(event) {
                 event.preventDefault();
 
-                // Eliminar cualquier campo de formset anterior para evitar duplicados en re-envíos (si el usuario edita y vuelve a intentar enviar)
                 document.querySelectorAll('.dynamic-formset-field').forEach(input => input.remove());
 
                 let formIdx = 0;
-                let initialFormsCount = 0; // <--- Esta variable
-                let totalFormsToKeep = 0; // Esta no es necesaria para los campos de gestión del formset
+                let initialFormsCount = 0;
 
                 for (const productId in despachedItems) {
                     const item = despachedItems[productId];
 
-                    // Campo ID (solo para ítems existentes)
-                    if (item.originalPk) { // Si el ítem ya existía en la BD
+                    if (item.originalPk) {
                         const idInput = document.createElement('input');
                         idInput.type = 'hidden';
                         idInput.name = `detalles-${formIdx}-id`;
                         idInput.value = item.originalPk;
                         idInput.classList.add('dynamic-formset-field');
                         form.appendChild(idInput);
-                        initialFormsCount++; // ¡Incrementar aquí!
+                        initialFormsCount++;
                     }
 
-                    // Campo DELETE
                     const deleteInput = document.createElement('input');
                     deleteInput.type = 'hidden';
                     deleteInput.name = `detalles-${formIdx}-DELETE`;
@@ -604,9 +617,7 @@ form.addEventListener('submit', function(event) {
                     deleteInput.classList.add('dynamic-formset-field');
                     form.appendChild(deleteInput);
 
-                    // Si el ítem NO está marcado para eliminación, añadir sus otros campos
                     if (!item.isDeleted) {
-                        // ... (el resto de tus campos ocultos: producto, nombre_producto_despacho, marca, modelo, cantidad) ...
                         const productInput = document.createElement('input');
                         productInput.type = 'hidden';
                         productInput.name = `detalles-${formIdx}-producto`;
@@ -642,40 +653,34 @@ form.addEventListener('submit', function(event) {
                         quantityInput.classList.add('dynamic-formset-field');
                         form.appendChild(quantityInput);
 
-                        // Asegúrate de que este campo esté presente si lo usas en el modelo
                         const detalleCotizacionOrigenInput = document.createElement('input');
                         detalleCotizacionOrigenInput.type = 'hidden';
                         detalleCotizacionOrigenInput.name = `detalles-${formIdx}-detalle_cotizacion_origen`;
-                        detalleCotizacionOrigenInput.value = item.detalleCotizacionOrigen || ''; // Asume que lo tienes en 'item' si es relevante
+                        detalleCotizacionOrigenInput.value = item.detalleCotizacionOrigen || '';
                         detalleCotizacionOrigenInput.classList.add('dynamic-formset-field');
                         form.appendChild(detalleCotizacionOrigenInput);
                     }
-                    formIdx++; // Incrementar el índice para el siguiente formulario del formset
+                    formIdx++;
                 }
 
-                // Actualizar los campos de gestión del formset
                 document.getElementById('id_detalles-TOTAL_FORMS').value = formIdx;
-                document.getElementById('id_detalles-INITIAL_FORMS').value = initialFormsCount; // <--- ¡CAMBIO AQUÍ!
-                // Los campos MIN_NUM_FORMS y MAX_NUM_FORMS no necesitan actualización aquí
-                // >>> AÑADE ESTE BLOQUE DE CÓDIGO AQUÍ <<<
+                document.getElementById('id_detalles-INITIAL_FORMS').value = initialFormsCount;
+
                 console.log('--- Datos de Formulario y Formset a enviar ---');
-                const formData = new FormData(form); // Crea un objeto FormData con todos los campos del formulario
+                const formData = new FormData(form);
                 for (let [key, value] of formData.entries()) {
                     console.log(`${key}: ${value}`);
                 }
                 console.log('--- Fin de Datos a enviar ---');
-                // Finalmente, enviar el formulario
                 form.submit();
             });
 
-            // Inicialización al cargar la página
             loadInitialDetalles();
-            renderProductList(); // Renderizar la lista completa de productos al inicio
+            renderProductList();
         });
     </script> 
 
     <style>
-        /* Estilos específicos para la interfaz tipo POS */
         .product-card {
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
@@ -689,9 +694,8 @@ form.addEventListener('submit', function(event) {
         .product-card:hover {
             background-color: #f3f4f6;
         }
-        /* Ocultar flechas de los inputs de tipo number */
         .add-qty-input, .update-qty-input {
-            -moz-appearance: textfield; /* Firefox */
+            -moz-appearance: textfield;
         }
         .add-qty-input::-webkit-outer-spin-button,
         .add-qty-input::-webkit-inner-spin-button,

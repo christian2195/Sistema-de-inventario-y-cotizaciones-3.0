@@ -901,19 +901,19 @@ DetalleNotaDespachoFormSet = inlineformset_factory(
     NotaDespacho,
     DetalleNotaDespacho,
     fields=('producto', 'cantidad', 'detalle_cotizacion_origen', 'nombre_producto_despacho', 'marca', 'modelo'),
-    #extra=0, # No mostrar formularios vacíos inicialmente
     form=DetalleNotaDespachoForm,
     extra=1,
     can_delete=True
 )
 
-class NotaDespachoListView(LoginRequiredMixin, ListView): # Añadido LoginRequiredMixin
+
+class NotaDespachoListView(LoginRequiredMixin, ListView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_list.html'
     context_object_name = 'notas_despacho'
-    ordering = ['-fecha_despacho'] # Añadido ordenamiento para consistencia
+    ordering = ['-fecha_despacho']
 
-# AÑADIR ESTA CLASE:
+
 class NotaDespachoDetailView(LoginRequiredMixin, DetailView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_detail.html'
@@ -921,11 +921,9 @@ class NotaDespachoDetailView(LoginRequiredMixin, DetailView):
 
 
 def crear_o_editar_nota_despacho(request, pk=None):
-    # ... (tu código existente para crear_o_editar_nota_despacho) ...
     nota_despacho = None
     if pk:
         nota_despacho = get_object_or_404(NotaDespacho, pk=pk)
-        
 
     if request.method == 'POST':
         form = NotaDespachoForm(request.POST, instance=nota_despacho)
@@ -934,87 +932,81 @@ def crear_o_editar_nota_despacho(request, pk=None):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 nota_guardada = form.save(commit=False)
-                if not pk: # Si es una nueva nota
-                    nota_guardada.creado_por = request.user # Asigna el usuario actual
+                if not pk:
+                    nota_guardada.creado_por = request.user
                 nota_guardada.save()
                 
-                # Obtener los detalles actuales antes de guardar el formset
-                # Esto es crucial para calcular la diferencia de stock si se edita una nota
                 old_details = {str(d.pk): d for d in DetalleNotaDespacho.objects.filter(nota_despacho=nota_guardada)} if nota_guardada.pk else {}
-
-                # Guarda los detalles del formset
                 formset.instance = nota_guardada
-                saved_details = formset.save(commit=False) # Get instances from the formset
+                saved_details = formset.save(commit=False)
+                new_details_map = {str(d.pk): d for d in saved_details if d.pk}
 
-                # Lógica para actualizar el stock de productos
-                new_details_map = {str(d.pk): d for d in saved_details if d.pk} # Map new/updated details by PK
-
-                # Actualizar/Crear/Eliminar detalles y ajustar stock
                 for form_data in formset.forms:
-                    # Asegúrate de que 'producto' y 'cantidad' existan en cleaned_data
-                    # y maneja los casos donde puedan ser None si el formulario no es válido completamente
                     producto_instance = form_data.cleaned_data.get('producto')
                     product_id = producto_instance.pk if producto_instance else None
-                    cantidad_despachada = form_data.cleaned_data.get('cantidad', 0) # Usar 'cantidad' como en el formset fields
+                    cantidad_despachada = form_data.cleaned_data.get('cantidad', 0)
+                    detalle_cotizacion_origen = form_data.cleaned_data.get('detalle_cotizacion_origen')
                     detail_pk = form_data.cleaned_data.get('id')
                     
                     if form_data.cleaned_data.get('DELETE'):
-                        # Detalle existente marcado para eliminación
                         if detail_pk and str(detail_pk) in old_details:
                             old_detail = old_details[str(detail_pk)]
                             if old_detail.producto:
-                                old_detail.producto.cantidad += old_detail.cantidad # Revertir stock
+                                old_detail.producto.cantidad += old_detail.cantidad
                                 old_detail.producto.save()
                             old_detail.delete()
-                    elif product_id and cantidad_despachada > 0: # Solo procesar si hay producto y cantidad
+                    elif product_id and cantidad_despachada > 0:
                         if detail_pk and str(detail_pk) in old_details:
-                            # Detalle existente actualizado
                             old_detail = old_details[str(detail_pk)]
                             if old_detail.producto:
-                                # Calcular la diferencia y ajustar stock
-                                diff = cantidad_despachada - old_detail.cantidad # Usar .cantidad
+                                diff = cantidad_despachada - old_detail.cantidad
                                 old_detail.producto.cantidad -= diff
                                 old_detail.producto.save()
-                            # Update the old detail's fields if they changed
                             old_detail.nombre_producto_despacho = form_data.cleaned_data.get('nombre_producto_despacho')
                             old_detail.marca = form_data.cleaned_data.get('marca')
                             old_detail.modelo = form_data.cleaned_data.get('modelo')
-                            old_detail.cantidad = cantidad_despachada # Usar .cantidad
+                            old_detail.cantidad = cantidad_despachada
+                            old_detail.detalle_cotizacion_origen = detalle_cotizacion_origen
                             old_detail.save()
                         else:
-                            # Nuevo detalle
                             new_detail = form_data.save(commit=False)
                             new_detail.nota_despacho = nota_guardada
                             new_detail.save()
                             
                             product = new_detail.producto
                             if product:
-                                # Validar stock antes de descontar
-                                if product.cantidad < new_detail.cantidad: # Usar .cantidad
-                                    # Esto podría ser una validación aquí o en el formset
-                                    # Para evitar stock negativo
+                                if product.cantidad < new_detail.cantidad:
                                     form.add_error(None, f"Stock insuficiente para {product.nombre}. Disponible: {product.cantidad}")
-                                    transaction.set_rollback(True) # Deshacer cambios si hay error de stock
-                                    return render(request, 'inventario/nota_despacho_form.html', context) # Renderizar con errores
-                                product.cantidad -= new_detail.cantidad # Usar .cantidad
+                                    transaction.set_rollback(True)
+                                    cotizaciones = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
+                                    all_products_data = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
+                                    all_products_json = json.dumps(all_products_data)
+                                    context = {
+                                        'form': form,
+                                        'detalle_formset': formset,
+                                        'all_products_json': all_products_json,
+                                        'cotizaciones': cotizaciones,
+                                        'nota_despacho': nota_despacho,
+                                    }
+                                    return render(request, 'inventario/nota_despacho_form.html', context)
+                                product.cantidad -= new_detail.cantidad
                                 product.save()
             
             return redirect('inventario:nota_despacho_list')
         else:
-            # Si el formulario o formset no es válido, los errores se mostrarán en la plantilla
-            pass # Continúa a renderizar con errores
+            pass
 
     else:
         form = NotaDespachoForm(instance=nota_despacho)
         formset = DetalleNotaDespachoFormSet(instance=nota_despacho, prefix='detalles')
 
-    # Preparar datos de productos para el JS (all_products)
+    cotizaciones = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
+
     all_products_data = list(Producto.objects.all().values(
-        'id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura' # Asegúrate de que unidad_medida__abreviatura exista o elimínalo
+        'id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'
     ))
     all_products_json = json.dumps(all_products_data)
 
-    # Preparar datos iniciales del formset para el JS (initial_json)
     initial_detalles_data = []
     if nota_despacho:
         for detalle in nota_despacho.detalles.all():
@@ -1024,15 +1016,17 @@ def crear_o_editar_nota_despacho(request, pk=None):
                 'nombre_producto_despacho': detalle.nombre_producto_despacho,
                 'marca': detalle.marca,
                 'modelo': detalle.modelo,
-                'cantidad': float(detalle.cantidad), # Importante: usar .cantidad aquí
+                'cantidad': float(detalle.cantidad),
+                'detalle_cotizacion_origen': detalle.detalle_cotizacion_origen.pk if detalle.detalle_cotizacion_origen else None,
             })
     initial_detalles_json = json.dumps(initial_detalles_data)
 
     context = {
         'form': form,
         'detalle_formset': formset,
-        'all_products_json': all_products_json, # Cambiado a all_products_json para coincidir con la plantilla
-        'initial_dispatch_items_json': initial_detalles_json, # Cambiado a initial_dispatch_items_json para coincidir con la plantilla
+        'all_products_json': all_products_json,
+        'initial_dispatch_items_json': initial_detalles_json,
+        'cotizaciones': cotizaciones,
         'nota_despacho': nota_despacho,
     }
     return render(request, 'inventario/nota_despacho_form.html', context)
@@ -1045,7 +1039,30 @@ def crear_nota_despacho(request):
 def editar_nota_despacho(request, pk):
     return crear_o_editar_nota_despacho(request, pk)
 
-class NotaDespachoDeleteView(LoginRequiredMixin, DeleteView): # Añadido LoginRequiredMixin
+
+def get_productos_from_cotizacion(request, pk):
+    try:
+        cotizacion = Cotizacion.objects.get(pk=pk)
+        detalles = DetalleCotizacion.objects.filter(cotizacion=cotizacion).select_related('producto')
+        
+        productos_json = []
+        for detalle in detalles:
+            productos_json.append({
+                'id': detalle.producto.pk,
+                'name': detalle.nombre_producto_cotizacion or detalle.producto.nombre,
+                'brand': detalle.marca or detalle.producto.marca,
+                'model': detalle.modelo or detalle.producto.modelo,
+                'quantity': float(detalle.cantidad),
+                'detalleCotizacionOrigenPk': detalle.pk,
+            })
+        return JsonResponse({'success': True, 'productos': productos_json})
+    except Cotizacion.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Cotización no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class NotaDespachoDeleteView(LoginRequiredMixin, DeleteView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_confirm_delete.html'
     success_url = reverse_lazy('inventario:nota_despacho_list')
@@ -1055,34 +1072,25 @@ class NotaDespachoDeleteView(LoginRequiredMixin, DeleteView): # Añadido LoginRe
             nota = self.get_object()
             for detalle in nota.detalles.all():
                 if detalle.producto:
-                    detalle.producto.cantidad += detalle.cantidad # Revertir stock al eliminar la nota
+                    detalle.producto.cantidad += detalle.cantidad
                     detalle.producto.save()
             return super().form_valid(form)
 
 
 def export_nota_despacho_pdf(request, pk):
     if not request.user.is_authenticated:
-        return redirect('inventario:login') # Redirigir si no está autenticado
-    """
-    Genera una Nota de Despacho en formato PDF utilizando xhtml2pdf.
-    """
+        return redirect('inventario:login')
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="nota_despacho_{pk}.pdf"' # Added specific filename
-    # Aquí faltaría la lógica de generación del PDF con xhtml2pdf
-    return response # Asegúrate de que esto devuelve algo
+    response['Content-Disposition'] = f'attachment; filename="nota_despacho_{pk}.pdf"'
+    return response
 
 
 def generate_nota_despacho_pdf(request, pk):
-    """
-    Genera un PDF de la Nota de Despacho utilizando WeasyPrint.
-    """
-    # Usar select_related para obtener el proveedor en una sola consulta
     nota_despacho = get_object_or_404(NotaDespacho.objects.select_related('proveedor'), pk=pk)
     detalles = nota_despacho.detalles.all()
     
-    total_cantidad = sum(d.cantidad for d in detalles) # Usa .cantidad
+    total_cantidad = sum(d.cantidad for d in detalles)
     
-    # Calcular filas vacías para rellenar hasta un mínimo de 10 ítems en la tabla
     min_rows = 10
     empty_rows_count = max(0, min_rows - len(detalles))
     empty_rows_range = range(empty_rows_count)
@@ -1092,18 +1100,24 @@ def generate_nota_despacho_pdf(request, pk):
         'detalles': detalles,
         'total_cantidad': total_cantidad,
         'empty_rows_range': empty_rows_range,
-        # Mapeo de campos del PDF a los campos del modelo
-        'cliente_data': nota_despacho.cliente.nombre, # Ahora es un CharField directo
-        'proveedor_nombre': nota_despacho.proveedor.nombre if nota_despacho.proveedor else 'N/A', # Accede al nombre del proveedor
-        # Los detalles del conductor/transportista ya están directamente en nota_despacho
+        'cliente_data': nota_despacho.cliente.nombre,
+        'proveedor_nombre': nota_despacho.proveedor.nombre if nota_despacho.proveedor else 'N/A',
         'nombre_conductor': nota_despacho.nombre_conductor,
         'ci_conductor': nota_despacho.ci_conductor,
         'tipo_vehiculo': nota_despacho.tipo_vehiculo,
         'color_vehiculo': nota_despacho.color_vehiculo,
         'placa_vehiculo': nota_despacho.placa_vehiculo,
-        # Ruta de la imagen del logo (ajusta si tu configuración de static files es diferente)
         'logo_path': request.build_absolute_uri('/static/img/image_3fa1f6.png'),
     }
+
+    template = get_template('inventario/nota_despacho_pdf.html')
+    html_string = template.render(context)
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="nota_despacho_{nota_despacho.numero_despacho or nota_despacho.pk}.pdf"'
+
+    HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf(response)
+    return response
 
     # Renderiza la plantilla HTML a una cadena
     template = get_template('inventario/nota_despacho_pdf.html')

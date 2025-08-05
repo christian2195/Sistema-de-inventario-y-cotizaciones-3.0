@@ -55,7 +55,8 @@ urlpatterns = [
     path('notas-despacho/exportar-pdf/<int:pk>/', views.generate_nota_despacho_pdf, name='generate_nota_despacho_pdf'),
     # API para obtener detalles de cotización (se mantiene)
     path('api/cotizaciones/<int:pk>/details/', views.get_cotizacion_details_api, name='api_cotizacion_details'),
-
+# --- NUEVA URL PARA AJAX ---
+    path('get-productos-from-cotizacion/<int:pk>/', views.get_productos_from_cotizacion, name='get_productos_from_cotizacion'),
 
     # URLs para órdenes de salida (solo detalle, la creación es automática desde cotización)
     path('ordenes-salida/<int:pk>/', views.OrdenSalidaDetailView.as_view(), name='orden_salida_detail'),
