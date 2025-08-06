@@ -28,7 +28,7 @@
                 <div class="list-item">
                     <p class="font-semibold">{{ movimiento.producto.nombre }}</p>
                     <p class="text-sm text-gray-600">
-                        {{ movimiento.get_tipo_display|capfirst }} de {{ movimiento.cantidad }} unid. el {{ movimiento.fecha|date:"d M, Y H:i" }}
+                        {{ movimiento.tipo_movimiento.nombre|capfirst }} de {{ movimiento.cantidad }} unid. el {{ movimiento.fecha|date:"d M, Y H:i" }}
                     </p>
                 </div>
                 {% empty %}

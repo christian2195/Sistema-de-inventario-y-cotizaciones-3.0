@@ -46,18 +46,17 @@ urlpatterns = [
 
     # URLs existentes para notas de despacho
     path('notas-despacho/', views.NotaDespachoListView.as_view(), name='nota_despacho_list'),
-    # CORRECCIÓN: Usar las funciones de vista en lugar de las clases
     path('notas-despacho/crear/', views.crear_nota_despacho, name='nota_despacho_create'),
-    path('notas-despacho/crear-desde-orden/<int:orden_salida_id>/', views.crear_nota_despacho, name='nota_despacho_create_from_order'),
-    path('notas-despacho/<int:pk>/', views.NotaDespachoDetailView.as_view(), name='nota_despacho_detail'), # Mantener como clase si existe
+    # Esta es la línea corregida, eliminando la duplicada e incorrecta
+    path('notas-despacho/crear-desde-orden/<int:orden_salida_id>/', views.crear_nota_despacho_desde_orden, name='crear_nota_despacho_desde_orden'),
+    path('notas-despacho/<int:pk>/', views.NotaDespachoDetailView.as_view(), name='nota_despacho_detail'),
     path('notas-despacho/<int:pk>/editar/', views.editar_nota_despacho, name='nota_despacho_update'),
     path('notas-despacho/<int:pk>/eliminar/', views.NotaDespachoDeleteView.as_view(), name='nota_despacho_delete'),
     path('notas-despacho/exportar-pdf/<int:pk>/', views.generate_nota_despacho_pdf, name='generate_nota_despacho_pdf'),
     # API para obtener detalles de cotización (se mantiene)
     path('api/cotizaciones/<int:pk>/details/', views.get_cotizacion_details_api, name='api_cotizacion_details'),
-# --- NUEVA URL PARA AJAX ---
     path('get-productos-from-cotizacion/<int:pk>/', views.get_productos_from_cotizacion, name='get_productos_from_cotizacion'),
-
+    
     # URLs para órdenes de salida (solo detalle, la creación es automática desde cotización)
     path('ordenes-salida/<int:pk>/', views.OrdenSalidaDetailView.as_view(), name='orden_salida_detail'),
 
@@ -106,3 +105,7 @@ urlpatterns = [
     path('api/movimiento/crear/', views.crear_movimiento_from_interface, name='crear_movimiento_from_interface'),
 ]
 
+# Define los manejadores de errores personalizados
+# Asegúrate de que estas vistas existan en tu inventario/views.py
+handler404 = 'inventario.views.custom_404_view'
+handler500 = 'inventario.views.custom_500_view'

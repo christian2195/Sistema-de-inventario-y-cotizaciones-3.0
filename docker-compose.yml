@@ -13,4 +13,5 @@ services:
       # - SECRET_KEY=your_secret_key_here
       # - DEBUG=True
       # - DATABASE_URL=sqlite:///db.sqlite3
+      
       - PYTHONUNBUFFERED=1 # Asegura que los logs de Python se muestren en tiempo real

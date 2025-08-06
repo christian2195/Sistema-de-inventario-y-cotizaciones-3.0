@@ -104,23 +104,61 @@ class Producto(models.Model):
         verbose_name = "Producto"
         verbose_name_plural = "Productos"
 
+# Nuevo Modelo: TipoMovimiento
+class TipoMovimiento(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre del Tipo de Movimiento")
+    es_entrada = models.BooleanField(default=False, help_text="Indica si este tipo de movimiento aumenta el stock.")
+    es_salida = models.BooleanField(default=False, help_text="Indica si este tipo de movimiento disminuye el stock.")
+    es_traslado = models.BooleanField(default=False, help_text="Indica si este tipo de movimiento es un traslado entre almacenes.")
+
+    class Meta:
+        verbose_name = "Tipo de Movimiento"
+        verbose_name_plural = "Tipos de Movimientos"
+
+    def __str__(self):
+        return self.nombre
+
 # Modelo: Movimiento
 class Movimiento(models.Model):
-    TIPO_MOVIMIENTO = (
-        ('entrada', 'Entrada'),
-        ('salida', 'Salida'),
+    # Eliminamos TIPO_MOVIMIENTO choices y usamos ForeignKey a TipoMovimiento
+    tipo_movimiento = models.ForeignKey(
+        TipoMovimiento,
+        on_delete=models.PROTECT,
+        related_name='movimientos',
+        verbose_name="Tipo de Movimiento"
     )
     
     producto = models.ForeignKey(
         Producto, 
         on_delete=models.PROTECT,
-        related_name='movimientos'
+        related_name='movimientos_producto' # Cambiado para evitar conflicto con 'movimientos' de TipoMovimiento
     )
-    tipo = models.CharField(max_length=10, choices=TIPO_MOVIMIENTO, verbose_name="Tipo de Movimiento")
     cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
     fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha del Movimiento")
     descripcion = models.CharField(max_length=255, blank=True, verbose_name="Descripción/Motivo")
     
+    almacen_origen = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        related_name='movimientos_salida',
+        verbose_name="Almacén de Origen"
+    )
+    almacen_destino = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='movimientos_entrada',
+        verbose_name="Almacén de Destino"
+    )
+    responsable = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Responsable"
+    )
+
     guia_salida = models.ForeignKey(
         'GuiaSalida',
         on_delete=models.SET_NULL,
@@ -140,15 +178,12 @@ class Movimiento(models.Model):
     )
 
     def __str__(self):
-        return f'{self.get_tipo_display()} de {self.cantidad} x {self.producto.nombre}'
+        return f'{self.tipo_movimiento.nombre} de {self.cantidad} x {self.producto.nombre}'
 
     def save(self, *args, **kwargs):
-        # La lógica de actualización de stock se moverá a las señales para evitar duplicación
-        # y asegurar que se dispare correctamente con las operaciones del formset.
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # La lógica de reversión de stock se moverá a las señales.
         super().delete(*args, **kwargs)
 
     class Meta:
@@ -645,7 +680,7 @@ def update_stock_on_detalle_nota_despacho_save(sender, instance, created, **kwar
         if quantity_change != 0 or created:
             Movimiento.objects.create(
                 producto=instance.producto,
-                tipo='salida',
+                tipo_movimiento=TipoMovimiento.objects.get(es_salida=True), # Usar el tipo de movimiento 'salida'
                 cantidad=abs(quantity_change) if not created else instance.cantidad, # Si es nuevo, la cantidad es la cantidad del detalle
                 descripcion=f"Despacho de {instance.cantidad} unidades de {instance.producto.nombre} (Nota Despacho #{instance.nota_despacho.numero_despacho})",
                 fecha=timezone.now(),
@@ -665,7 +700,7 @@ def revert_stock_on_detalle_nota_despacho_delete(sender, instance, **kwargs):
 
         Movimiento.objects.create(
             producto=instance.producto,
-            tipo='entrada',
+            tipo_movimiento=TipoMovimiento.objects.get(es_entrada=True), # Usar el tipo de movimiento 'entrada'
             cantidad=instance.cantidad, # Usa .cantidad
             descripcion=f"Reversión de despacho de {instance.cantidad} unidades de {instance.producto.nombre} (eliminación de Detalle Nota Despacho #{instance.pk} de Nota #{instance.nota_despacho.numero_despacho})",
             fecha=timezone.now(),
@@ -699,7 +734,7 @@ def update_product_stock_and_acta_status_on_recepcion_save(sender, instance, cre
         if quantity_change != 0 or created:
             Movimiento.objects.create(
                 producto=instance.producto,
-                tipo='entrada',
+                tipo_movimiento=TipoMovimiento.objects.get(es_entrada=True), # Usar el tipo de movimiento 'entrada'
                 cantidad=abs(quantity_change) if not created else instance.cantidad,
                 descripcion=f"Recepción de {instance.cantidad} unidades de {instance.producto.nombre} vía Acta de Recepción #{instance.acta_recepcion.numero_recepcion}",
                 fecha=timezone.now(),
@@ -722,7 +757,7 @@ def update_product_stock_and_acta_status_on_recepcion_delete(sender, instance, *
 
         Movimiento.objects.create(
             producto=instance.producto,
-            tipo='salida',
+            tipo_movimiento=TipoMovimiento.objects.get(es_salida=True), # Usar el tipo de movimiento 'salida'
             cantidad=instance.cantidad,
             descripcion=f"Reversión de recepción de {instance.cantidad} unidades de {instance.producto.nombre} (eliminación de Detalle Acta Recepción #{instance.pk} de Acta #{instance.acta_recepcion.numero_recepcion})",
             fecha=timezone.now(),

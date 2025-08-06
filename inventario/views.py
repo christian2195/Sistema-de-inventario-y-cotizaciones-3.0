@@ -1,7 +1,7 @@
 # inventario/views.py
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
 from django.urls import reverse_lazy
-from .models import Producto, Movimiento, GuiaSalida, Almacen, Proveedor, UnidadMedida, NotaDespacho, DetalleNotaDespacho, OrdenSalida, DetalleOrdenSalida, ActaRecepcion, DetalleActaRecepcion, Cliente, Cotizacion, DetalleCotizacion, PagoProveedor # Importa los nuevos modelos
+from .models import Producto, Movimiento, GuiaSalida, Almacen, Proveedor, UnidadMedida, NotaDespacho, DetalleNotaDespacho, OrdenSalida, DetalleOrdenSalida, ActaRecepcion, DetalleActaRecepcion, Cliente, Cotizacion, DetalleCotizacion, PagoProveedor, TipoMovimiento # Importa los nuevos modelos
 from django.forms import ModelForm, inlineformset_factory # Import inlineformset_factory
 from django import forms # Importar forms para widgets
 from django.db.models import Sum, F, Q # Importa Sum, F y Q para consultas avanzadas
@@ -23,7 +23,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
-from .models import NotaDespacho # Or from your_app_name.models import NotaDespacho
 from weasyprint import HTML
 #from .forms import MovimientoForm
 
@@ -33,7 +32,7 @@ from barcode.writer import ImageWriter
 import base64
 
 # Importar para manejar rutas de archivos estáticos
-#from django.contrib.staticfiles.storage import staticfiles_storage
+from django.contrib.staticfiles.storage import staticfiles_storage # Descomentado para uso
 from django.conf import settings
 import os
 from django.forms.models import model_to_dict # Added this import for model_to_dict
@@ -52,7 +51,9 @@ class ProductoForm(ModelForm):
 class MovimientoForm(ModelForm):
     class Meta:
         model = Movimiento
-        fields = ['producto', 'tipo', 'cantidad', 'descripcion', 'guia_salida']
+        # CAMBIO: 'tipo' ha sido reemplazado por 'tipo_movimiento'
+        # Añadidos 'almacen_origen', 'almacen_destino', 'responsable'
+        fields = ['producto', 'tipo_movimiento', 'cantidad', 'descripcion', 'almacen_origen', 'almacen_destino', 'responsable', 'guia_salida', 'acta_recepcion']
 
 class GuiaSalidaForm(ModelForm):
     class Meta:
@@ -441,7 +442,7 @@ def import_productos_excel(request):
         except Exception as e:
             return render(request, 'inventario/excel_upload.html', {'error_message': f"Error al procesar el archivo Excel: {e}", 'is_product_import': True})
     
-    return render(request, 'inventario/excel_upload.html', {'is_product_import': True})
+    return render(request, 'inventario/excel_upload.html', {'is_product_import': False})
 
 
 def generate_barcode_image(sku):
@@ -556,7 +557,7 @@ def export_movimientos_excel(request):
             movimiento.id,
             movimiento.producto.nombre if movimiento.producto else 'N/A',
             movimiento.producto.sku if movimiento.producto else 'N/A',
-            movimiento.get_tipo_display(),
+            movimiento.tipo_movimiento.nombre, # Usar el nombre del TipoMovimiento
             movimiento.cantidad,
             movimiento.fecha.strftime("%Y-%m-%d %H:%M:%S"),
             movimiento.descripcion,
@@ -594,7 +595,7 @@ def export_movimientos_pdf(request):
             str(movimiento.id),
             movimiento.producto.nombre if movimiento.producto else 'N/A',
             movimiento.producto.sku if movimiento.producto else 'N/A',
-            movimiento.get_tipo_display(),
+            movimiento.tipo_movimiento.nombre, # Usar el nombre del TipoMovimiento
             str(movimiento.cantidad),
             movimiento.fecha.strftime("%d/%m/%Y %H:%M"),
             movimiento.descripcion,
@@ -659,17 +660,19 @@ def import_movimientos_excel(request):
             for row_idx, row in enumerate(sheet.iter_rows(min_row=2), start=2):
                 try:
                     sku = row[col_sku].value
-                    tipo = str(row[col_tipo].value).lower()
+                    tipo_nombre = str(row[col_tipo].value).lower() # Usar tipo_nombre para buscar TipoMovimiento
                     cantidad = row[col_cantidad].value
                     descripcion = row[col_descripcion].value if col_descripcion != -1 else ''
                     fecha_val = row[col_fecha].value if col_fecha != -1 else None
 
-                    if not sku or not tipo or not cantidad:
+                    if not sku or not tipo_nombre or not cantidad:
                         errors.append(f"Fila {row_idx}: Datos incompletos (SKU, Tipo o Cantidad son obligatorios).")
                         continue
                     
-                    if tipo not in ['entrada', 'salida']:
-                        errors.append(f"Fila {row_idx}: Tipo de movimiento inválido '{tipo}'. Debe ser 'entrada' o 'salida'.")
+                    try:
+                        tipo_movimiento = TipoMovimiento.objects.get(nombre__iexact=tipo_nombre) # Buscar por nombre
+                    except TipoMovimiento.DoesNotExist:
+                        errors.append(f"Fila {row_idx}: Tipo de movimiento '{tipo_nombre}' no encontrado en la base de datos.")
                         continue
 
                     try:
@@ -718,12 +721,21 @@ def import_movimientos_excel(request):
                         except Exception as e:
                             errors.append(f"Fila {row_idx}: Error al procesar fecha '{fecha_val}': {e}.")
                     
+                    # Asignar almacenes y responsable (ejemplo, puedes ajustar la lógica)
+                    # Para la importación, podrías necesitar columnas adicionales en el Excel
+                    # para especificar almacén de origen, destino y responsable.
+                    # Por simplicidad, aquí se asignan valores por defecto o se asume un único almacén.
+                    almacen_origen_default = Almacen.objects.first() # O un almacén específico
+                    responsable_default = request.user # El usuario que realiza la importación
+
                     Movimiento.objects.create(
                         producto=producto,
-                        tipo=tipo,
+                        tipo_movimiento=tipo_movimiento,
                         cantidad=cantidad,
                         descripcion=descripcion,
-                        fecha=movimiento_fecha
+                        fecha=movimiento_fecha,
+                        almacen_origen=almacen_origen_default,
+                        responsable=responsable_default
                     )
                     imported_count += 1
 
@@ -756,72 +768,49 @@ class MovimientoDetailView(LoginRequiredMixin, DetailView):
     template_name = 'inventario/movimiento_detail.html'
     context_object_name = 'movimiento'
 
-class MovimientoUpdateView(UpdateView):
+class MovimientoUpdateView(LoginRequiredMixin, UpdateView):
     model = Movimiento
     form_class = MovimientoForm
     template_name = 'inventario/movimiento_form.html'
     success_url = reverse_lazy('inventario:movimiento_list')
 
     def form_valid(self, form):
-        # Obtenemos el objeto Movimiento original antes de que el formulario lo modifique.
-        # Esto es crucial para calcular el impacto del cambio en el stock.
         original_movimiento = self.get_object()
         
-        # Obtenemos los datos del formulario (los nuevos valores)
         new_cantidad = form.cleaned_data['cantidad']
-        new_tipo = form.cleaned_data['tipo']
-        new_producto = form.cleaned_data['producto'] # El producto seleccionado en el formulario
+        new_tipo_movimiento = form.cleaned_data['tipo_movimiento'] # CAMBIO: Usar tipo_movimiento
+        new_producto = form.cleaned_data['producto']
 
-        # Obtenemos el producto asociado al movimiento original
         original_product = original_movimiento.producto
         
-        # --- Paso 1: Calcular el cambio de stock al "revertir" el movimiento original ---
-        # Si el movimiento original era una 'entrada', al editarlo, esa cantidad "sale" del stock.
-        # Si el movimiento original era una 'salida', al editarlo, esa cantidad "vuelve" al stock.
         stock_change_from_original = 0
-        if original_movimiento.tipo == 'entrada':
-            stock_change_from_original = -original_movimiento.cantidad # Revertir la entrada
-        elif original_movimiento.tipo == 'salida':
-            stock_change_from_original = original_movimiento.cantidad # Revertir la salida
+        if original_movimiento.tipo_movimiento.es_entrada: # CAMBIO: Usar es_entrada
+            stock_change_from_original = -original_movimiento.cantidad
+        elif original_movimiento.tipo_movimiento.es_salida: # CAMBIO: Usar es_salida
+            stock_change_from_original = original_movimiento.cantidad
 
-        # --- Paso 2: Calcular el cambio de stock al "aplicar" el nuevo movimiento ---
-        # Si el nuevo movimiento es una 'entrada', la cantidad "entra" al stock.
-        # Si el nuevo movimiento es una 'salida', la cantidad "sale" del stock.
         stock_change_for_new = 0
-        if new_tipo == 'entrada':
+        if new_tipo_movimiento.es_entrada: # CAMBIO: Usar es_entrada
             stock_change_for_new = new_cantidad
-        elif new_tipo == 'salida':
+        elif new_tipo_movimiento.es_salida: # CAMBIO: Usar es_salida
             stock_change_for_new = -new_cantidad
 
-        # --- Paso 3: Realizar la verificación del stock hipotético ---
-        # Consideramos dos escenarios: si el producto asociado al movimiento cambia o no.
         if original_product.pk != new_producto.pk:
-            # Escenario 1: El producto asociado al movimiento está cambiando.
-            # Necesitamos verificar el stock de AMBOS productos.
-
-            # a) Verificar el stock del producto ORIGINAL después de revertir el movimiento.
             hypothetical_old_product_stock = original_product.cantidad + stock_change_from_original
             if hypothetical_old_product_stock < 0:
                 form.add_error(None, f"No se puede actualizar el movimiento. Revertir el movimiento original de '{original_product.nombre}' resultaría en stock negativo ({hypothetical_old_product_stock}).")
                 return self.form_invalid(form)
 
-            # b) Verificar el stock del producto NUEVO después de aplicar el nuevo movimiento.
             hypothetical_new_product_stock = new_producto.cantidad + stock_change_for_new
             if hypothetical_new_product_stock < 0:
                 form.add_error(None, f"No se puede actualizar el movimiento. La cantidad de '{new_producto.nombre}' sería negativa con el nuevo movimiento ({hypothetical_new_product_stock}).")
                 return self.form_invalid(form)
         else:
-            # Escenario 2: El producto asociado al movimiento NO está cambiando.
-            # Calculamos el cambio neto en el stock del mismo producto.
-            # Stock actual del producto + (cambio por revertir viejo) + (cambio por aplicar nuevo)
             net_stock_after_update = original_product.cantidad + stock_change_from_original + stock_change_for_new
             if net_stock_after_update < 0:
                 form.add_error(None, f"No se puede actualizar el movimiento. La cantidad de '{original_product.nombre}' sería negativa ({net_stock_after_update}).")
                 return self.form_invalid(form)
 
-        # Si todas las verificaciones pasan, procedemos a guardar el formulario.
-        # Asumimos que las señales (pre_save/post_save) del modelo Movimiento
-        # se encargarán de la actualización real del stock del producto.
         return super().form_valid(form)
 
 class MovimientoDeleteView(LoginRequiredMixin, DeleteView):
@@ -835,38 +824,22 @@ class MovimientoDeleteView(LoginRequiredMixin, DeleteView):
         product = movimiento.producto
 
         if product:
-            if movimiento.tipo == 'entrada':
-                # Si se elimina un movimiento de 'entrada', la cantidad del producto disminuye.
-                # Verificamos si esto resultaría en una cantidad negativa.
+            # CAMBIO: Usar tipo_movimiento.es_entrada/es_salida
+            if movimiento.tipo_movimiento.es_entrada:
                 new_quantity = product.cantidad - movimiento.cantidad
                 if new_quantity < 0:
-                    # Si la cantidad sería negativa, impedimos la eliminación
-                    # y mostramos un mensaje de error.
                     return self.render_to_response(self.get_context_data(
                         object=self.object,
                         error_message=f"No se puede eliminar este movimiento de entrada. La cantidad de '{product.nombre}' sería negativa ({new_quantity})."
                     ))
-            elif movimiento.tipo == 'salida':
-                # Si se elimina un movimiento de 'salida', la cantidad del producto aumenta.
-                # No necesitamos una verificación de negativo aquí ya que la cantidad aumenta.
+            elif movimiento.tipo_movimiento.es_salida:
                 new_quantity = product.cantidad + movimiento.cantidad
             
-            # Si la verificación pasa (o no es aplicable para 'salida'),
-            # procedemos con la eliminación dentro de una transacción atómica.
-            # Esto asegura que si algo falla durante la eliminación o las actualizaciones
-            # de señales (si las tienes), la base de datos se revierta a su estado anterior.
             with transaction.atomic():
-                # La señal post_delete del modelo Movimiento (si la tienes configurada)
-                # debería manejar la actualización real del stock del producto.
-                # Si no tienes una señal, tendrías que actualizar product.cantidad aquí:
-                # product.cantidad = new_quantity
-                # product.save()
                 return super().post(request, *args, **kwargs)
         
-        # Si no hay producto asociado, o si no entra en las condiciones anteriores,
-        # simplemente se procede con la eliminación (esto podría indicar un caso de borde
-        # o un movimiento sin producto, lo cual debería ser manejado por tu lógica de negocio).
         return super().post(request, *args, **kwargs)
+
 # --- Vistas para GuiaSalida ---
 class GuiaSalidaListView(LoginRequiredMixin, ListView):
     model = GuiaSalida
@@ -920,10 +893,22 @@ class NotaDespachoDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'nota_despacho'
 
 
-def crear_o_editar_nota_despacho(request, pk=None):
+def crear_o_editar_nota_despacho(request, pk=None, orden_salida_id=None):
     nota_despacho = None
     if pk:
         nota_despacho = get_object_or_404(NotaDespacho, pk=pk)
+
+    # Lógica para precargar desde una orden de salida
+    orden_salida = None
+    initial_data = {}
+    if orden_salida_id:
+        orden_salida = get_object_or_404(OrdenSalida, pk=orden_salida_id)
+        initial_data = {
+            'cliente': orden_salida.cliente.pk,
+            'orden_asociada': orden_salida.pk,
+            # 'almacen_origen': orden_salida.almacen.pk, # Eliminado ya que NotaDespacho no tiene campo almacen_origen
+            'observaciones': f"Nota generada desde la Orden de Salida #{orden_salida.pk}",
+        }
 
     if request.method == 'POST':
         form = NotaDespachoForm(request.POST, instance=nota_despacho)
@@ -987,6 +972,7 @@ def crear_o_editar_nota_despacho(request, pk=None):
                                         'all_products_json': all_products_json,
                                         'cotizaciones': cotizaciones,
                                         'nota_despacho': nota_despacho,
+                                        'orden_salida_id': orden_salida_id,
                                     }
                                     return render(request, 'inventario/nota_despacho_form.html', context)
                                 product.cantidad -= new_detail.cantidad
@@ -997,8 +983,23 @@ def crear_o_editar_nota_despacho(request, pk=None):
             pass
 
     else:
-        form = NotaDespachoForm(instance=nota_despacho)
-        formset = DetalleNotaDespachoFormSet(instance=nota_despacho, prefix='detalles')
+        if orden_salida_id:
+            form = NotaDespachoForm(initial=initial_data)
+            # Aquí precargamos los productos de la orden de salida
+            detalles_orden = DetalleOrdenSalida.objects.filter(orden_salida=orden_salida)
+            initial_detalles_formset = []
+            for detalle in detalles_orden:
+                initial_detalles_formset.append({
+                    'producto': detalle.producto.pk,
+                    'cantidad': detalle.cantidad,
+                    'nombre_producto_despacho': detalle.nombre_producto_salida,
+                    'marca': detalle.marca,
+                    'modelo': detalle.modelo,
+                })
+            formset = DetalleNotaDespachoFormSet(initial=initial_detalles_formset, prefix='detalles')
+        else:
+            form = NotaDespachoForm(instance=nota_despacho)
+            formset = DetalleNotaDespachoFormSet(instance=nota_despacho, prefix='detalles')
 
     cotizaciones = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
 
@@ -1019,6 +1020,18 @@ def crear_o_editar_nota_despacho(request, pk=None):
                 'cantidad': float(detalle.cantidad),
                 'detalle_cotizacion_origen': detalle.detalle_cotizacion_origen.pk if detalle.detalle_cotizacion_origen else None,
             })
+    elif orden_salida_id: # Lógica para precargar desde orden_salida
+        detalles_orden = DetalleOrdenSalida.objects.filter(orden_salida=orden_salida)
+        for detalle in detalles_orden:
+            initial_detalles_data.append({
+                'id': None,
+                'producto': detalle.producto.pk if detalle.producto else None,
+                'nombre_producto_despacho': detalle.nombre_producto_salida,
+                'marca': detalle.marca,
+                'modelo': detalle.modelo,
+                'cantidad': float(detalle.cantidad),
+                'detalle_cotizacion_origen': None,
+            })
     initial_detalles_json = json.dumps(initial_detalles_data)
 
     context = {
@@ -1028,8 +1041,14 @@ def crear_o_editar_nota_despacho(request, pk=None):
         'initial_dispatch_items_json': initial_detalles_json,
         'cotizaciones': cotizaciones,
         'nota_despacho': nota_despacho,
+        'orden_salida_id': orden_salida_id,
     }
     return render(request, 'inventario/nota_despacho_form.html', context)
+
+
+# --- NUEVA FUNCIÓN PARA CREAR NOTA DE DESPACHO DESDE UNA ORDEN ---
+def crear_nota_despacho_desde_orden(request, orden_salida_id):
+    return crear_o_editar_nota_despacho(request, orden_salida_id=orden_salida_id)
 
 
 def crear_nota_despacho(request):
@@ -1039,17 +1058,16 @@ def crear_nota_despacho(request):
 def editar_nota_despacho(request, pk):
     return crear_o_editar_nota_despacho(request, pk)
 
-
 def get_productos_from_cotizacion(request, pk):
     try:
         cotizacion = Cotizacion.objects.get(pk=pk)
-        detalles = DetalleCotizacion.objects.filter(cotizacion=cotizacion).select_related('producto')
+        detalles = cotizacion.detalles.filter(cotizacion=cotizacion).select_related('producto') # Corrected filter
         
         productos_json = []
         for detalle in detalles:
             productos_json.append({
                 'id': detalle.producto.pk,
-                'name': detalle.nombre_producto_cotizacion or detalle.producto.nombre,
+                'name': detalle.nombre_producto_cotizado or detalle.producto.nombre,
                 'brand': detalle.marca or detalle.producto.marca,
                 'model': detalle.modelo or detalle.producto.modelo,
                 'quantity': float(detalle.cantidad),
@@ -1220,7 +1238,7 @@ def create_cotizacion_from_interface(request):
                         producto=item_data['producto'],
                         cantidad=item_data['cantidad'],
                         precio_unitario=item_data['precio_unitario'],
-                        subtotal=item_data['subtotal'],
+                        subtotal=item_data['subtotal'], # Corregido de 'item' a 'item_data'
                         nombre_producto_cotizado=item_data['nombre_producto_cotizado'],
                         marca=item_data['marca'],
                         modelo=item_data['modelo']
@@ -1249,9 +1267,9 @@ def get_cotizacion_details_api(request, pk):
         )
         return JsonResponse({'status': 'success', 'detalles': list(detalles)})
     except Cotizacion.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Cotización no encontrada.'}, status=404)
+        return JsonResponse({'success': False, 'error': 'Cotización no encontrada'}, status=404)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 # --- Vistas para ActaRecepcion ---
 # Define the formset for DetalleActaRecepcion
@@ -1562,7 +1580,7 @@ def cotizacion_accept(request, pk):
             with transaction.atomic():
                 # Create OrdenSalida as a record of the accepted quote
                 orden_salida = OrdenSalida.objects.create(
-                    cliente=cotizacion.cliente.nombre,
+                    cliente=cotizacion.cliente,
                     cotizacion_origen=cotizacion,
                     total=cotizacion.total_cotizado
                 )
@@ -1571,7 +1589,7 @@ def cotizacion_accept(request, pk):
                 cotizacion.save(update_fields=['estado'])
 
                 # Redirect to the NotaDespacho creation form, pre-filling with this order
-                return redirect('inventario:nota_despacho_create_from_order', orden_salida_id=orden_salida.pk)
+                return redirect('inventario:crear_nota_despacho_desde_orden', orden_salida_id=orden_salida.pk)
         else:
             return HttpResponse("La cotización no está en estado 'abierta' para ser aceptada.", status=400)
     return HttpResponse("Método no permitido.", status=405)
@@ -1583,7 +1601,7 @@ class CotizacionesInterfaceView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['productos'] = Producto.objects.filter(cantidad__gt=0).order_by('nombre')
-        context['clientes'] = Cliente.objects.all().order_by('nombre')
+        context['clientes'] = Cliente.objects.all().order_by('nombre') # Pasar clientes para el selector
         return context
 
 @csrf_exempt
@@ -1593,7 +1611,7 @@ def create_cotizacion_from_interface(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            cliente_id = data.get('cliente_id')
+            cliente_id = data.get('cliente_id') # Ahora esperamos un ID de cliente
             items = data.get('items', [])
 
             if not cliente_id:
@@ -1611,13 +1629,11 @@ def create_cotizacion_from_interface(request):
             detalles_para_cotizacion = []
 
             with transaction.atomic():
+                # Validar y preparar ítems para la cotización
                 for item_data in items:
                     product_id = item_data.get('producto_id')
                     cantidad_solicitada = item_data.get('cantidad')
-                    precio_unitario = item_data.get('precio_unitario')
-                    nombre_producto_cotizado = item_data.get('nombre_producto_cotizado')
-                    marca = item_data.get('marca')
-                    modelo = item_data.get('modelo')
+                    precio_unitario = item_data.get('precio_unitario') # Precio puede ser el del producto o uno manual
 
                     if not product_id or not cantidad_solicitada or precio_unitario is None:
                         raise ValueError("Datos de ítem incompletos para la cotización.")
@@ -1630,6 +1646,11 @@ def create_cotizacion_from_interface(request):
                     if cantidad_solicitada <= 0:
                         raise ValueError(f"Cantidad inválida para {producto.nombre}.")
                     
+                    # Usar el nombre, marca y modelo del producto si no se proporcionan explícitamente en el JSON
+                    nombre_producto_cotizado = item_data.get('nombre_producto_cotizado', producto.nombre)
+                    marca = item_data.get('marca', producto.marca)
+                    modelo = item_data.get('modelo', producto.modelo)
+
                     subtotal_item = float(precio_unitario) * cantidad_solicitada
                     total_cotizacion += subtotal_item
                     detalles_para_cotizacion.append({
@@ -1642,10 +1663,11 @@ def create_cotizacion_from_interface(request):
                         'modelo': modelo
                     })
                 
+                # Crear la Cotización
                 cotizacion = Cotizacion.objects.create(
                     cliente=cliente,
                     total_cotizado=total_cotizacion,
-                    estado='abierta'
+                    estado='abierta' # Estado inicial de una cotización
                 )
 
                 for item_data in detalles_para_cotizacion:
@@ -1654,7 +1676,7 @@ def create_cotizacion_from_interface(request):
                         producto=item_data['producto'],
                         cantidad=item_data['cantidad'],
                         precio_unitario=item_data['precio_unitario'],
-                        subtotal=item_data['subtotal'],
+                        subtotal=item_data['subtotal'], # Corregido de 'item' a 'item_data'
                         nombre_producto_cotizado=item_data['nombre_producto_cotizado'],
                         marca=item_data['marca'],
                         modelo=item_data['modelo']
@@ -1683,443 +1705,9 @@ def get_cotizacion_details_api(request, pk):
         )
         return JsonResponse({'status': 'success', 'detalles': list(detalles)})
     except Cotizacion.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Cotización no encontrada.'}, status=404)
+        return JsonResponse({'success': False, 'error': 'Cotización no encontrada'}, status=404)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-# --- Vistas para ActaRecepcion ---
-# Define the formset for DetalleActaRecepcion
-DetalleActaRecepcionFormSet = inlineformset_factory(
-    ActaRecepcion,
-    DetalleActaRecepcion,
-    form=DetalleActaRecepcionForm,
-    extra=0, # Changed to 0 as JS will manage adding rows
-    can_delete=True
-)
-
-class ActaRecepcionListView(LoginRequiredMixin, ListView):
-    model = ActaRecepcion
-    template_name = 'inventario/acta_recepcion_list.html' # Nueva plantilla
-    context_object_name = 'actas_recepcion'
-    ordering = ['-fecha_recepcion']
-
-class ActaRecepcionDetailView(LoginRequiredMixin, DetailView):
-    model = ActaRecepcion
-    template_name = 'inventario/acta_recepcion_detail.html' # Nueva plantilla
-    context_object_name = 'acta_recepcion'
-
-class ActaRecepcionCreateView(LoginRequiredMixin, CreateView):
-    model = ActaRecepcion
-    form_class = ActaRecepcionForm
-    template_name = 'inventario/acta_recepcion_form.html' # Nueva plantilla
-    success_url = reverse_lazy('inventario:acta_recepcion_list')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['detalle_formset'] = DetalleActaRecepcionFormSet(self.request.POST, instance=self.object)
-        else:
-            context['detalle_formset'] = DetalleActaRecepcionFormSet(instance=self.object)
-        
-        context['all_products'] = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
-        
-        # Serializar los datos iniciales del formset a JSON para JavaScript
-        initial_detalles_data = []
-        if self.object and self.object.pk: # Si estamos editando una Acta existente
-            for detalle in self.object.detalles.all():
-                initial_detalles_data.append({
-                    'id': detalle.id,
-                    'producto': detalle.producto.id if detalle.producto else None,
-                    'nombre_producto_recepcion': detalle.nombre_producto_recepcion,
-                    'marca': detalle.marca,
-                    'modelo': detalle.modelo,
-                    'cantidad': detalle.cantidad,
-                })
-        context['detalle_formset'].initial_json = json.dumps(initial_detalles_data)
-
-        return context
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        detalle_formset = context['detalle_formset']
-        with transaction.atomic():
-            self.object = form.save()
-            if detalle_formset.is_valid():
-                detalle_formset.instance = self.object
-                detalle_formset.save()
-            else:
-                return self.form_invalid(form)
-        return super().form_valid(form)
-
-class ActaRecepcionUpdateView(LoginRequiredMixin, UpdateView):
-    model = ActaRecepcion
-    form_class = ActaRecepcionForm
-    template_name = 'inventario/acta_recepcion_form.html' # Nueva plantilla
-    success_url = reverse_lazy('inventario:acta_recepcion_list')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['detalle_formset'] = DetalleActaRecepcionFormSet(self.request.POST, instance=self.object)
-        else:
-            context['detalle_formset'] = DetalleActaRecepcionFormSet(instance=self.object)
-        
-        context['all_products'] = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
-        
-        # Serializar los datos iniciales del formset a JSON para JavaScript
-        initial_detalles_data = []
-        if self.object and self.object.pk: # Si estamos editando una Acta existente
-            for detalle in self.object.detalles.all():
-                initial_detalles_data.append({
-                    'id': detalle.id,
-                    'producto': detalle.producto.id if detalle.producto else None,
-                    'nombre_producto_recepcion': detalle.nombre_producto_recepcion,
-                    'marca': detalle.marca,
-                    'modelo': detalle.modelo,
-                    'cantidad': detalle.cantidad,
-                })
-        context['detalle_formset'].initial_json = json.dumps(initial_detalles_data)
-
-        return context
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        detalle_formset = context['detalle_formset']
-        with transaction.atomic():
-            self.object = form.save()
-            if detalle_formset.is_valid():
-                detalle_formset.instance = self.object
-                detalle_formset.save()
-            else:
-                return self.form_invalid(form)
-        return super().form_valid(form)
-
-class ActaRecepcionDeleteView(LoginRequiredMixin, DeleteView):
-    model = ActaRecepcion
-    template_name = 'inventario/acta_recepcion_confirm_delete.html' # Nueva plantilla
-    success_url = reverse_lazy('inventario:acta_recepcion_list')
-
-def export_acta_recepcion_pdf(request, pk):
-    if not request.user.is_authenticated:
-        return redirect('inventario:login') # Redirigir si no está autenticado
-    """
-    Genera un Acta de Recepción en formato PDF utilizando xhtml2pdf.
-    """
-    try:
-        acta_recepcion = get_object_or_404(ActaRecepcion, pk=pk)
-    except Http404:
-        return HttpResponse("Acta de Recepción no encontrada.", status=404)
-
-    detalles = acta_recepcion.detalles.all()
-    # Calcular cuántas filas vacías necesitamos para llegar a 5 ítems (como en la plantilla)
-    num_empty_rows = max(0, 5 - len(detalles))
-    empty_rows_range = range(num_empty_rows)
-
-    # --- Obtener la ruta absoluta de la imagen ---
-    image_static_path = 'img/encabezado_oficial.jpg'
-    absolute_image_path = None
-    try:
-        absolute_image_path = staticfiles_storage.path(image_static_path)
-        print(f"Ruta absoluta de la imagen para PDF (Acta): {absolute_image_path}") # Debugging
-        if not os.path.exists(absolute_image_path):
-            print(f"ADVERTENCIA (Acta): La imagen no existe en la ruta absoluta: {absolute_image_path}")
-            absolute_image_path = None
-    except NotImplementedError:
-        print("ADVERTENCIA (Acta): staticfiles_storage.path() no soportado. Intentando con STATIC_ROOT.")
-        if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
-            absolute_image_path = os.path.join(settings.STATIC_ROOT, image_static_path)
-            if not os.path.exists(absolute_image_path):
-                print(f"ADVERTENCIA (Acta): La imagen no existe en STATIC_ROOT: {absolute_image_path}")
-                absolute_image_path = None
-        else:
-            print("ADVERTENCIA (Acta): STATIC_ROOT no está configurado, no se puede obtener la ruta absoluta de la imagen.")
-            absolute_image_path = None
-    except Exception as e:
-        print(f"Error al obtener la ruta absoluta de la imagen (Acta): {e}")
-        absolute_image_path = None
-
-    context = {
-        'acta_recepcion': acta_recepcion,
-        'detalles': detalles,
-        'total_cantidad': sum(detalle.cantidad for detalle in detalles),
-        'current_date': timezone.now().strftime("%d/%m/%Y"),
-        'empty_rows_range': empty_rows_range,
-        'header_image_path': absolute_image_path,
-    }
-
-    template_path = 'inventario/pdf/acta_recepcion_pdf.html'
-    html = render_to_string(template_path, context)
-
-    pisa_status = pisa.CreatePDF(
-        html,
-        dest=response)
-
-    if pisa_status.err:
-        return HttpResponse('Error al generar el PDF: %s' % pisa_status.err, status=500)
-    return response
-
-class OrdenSalidaDetailView(LoginRequiredMixin, DetailView):
-    model = OrdenSalida
-    template_name = 'inventario/orden_salida_detail.html'
-    context_object_name = 'orden_salida'
-
-# --- Vistas para Clientes ---
-class ClienteListView(LoginRequiredMixin, ListView):
-    model = Cliente
-    template_name = 'inventario/cliente_list.html'
-    context_object_name = 'clientes'
-    ordering = ['nombre']
-
-class ClienteDetailView(LoginRequiredMixin, DetailView):
-    model = Cliente
-    template_name = 'inventario/cliente_detail.html'
-    context_object_name = 'cliente'
-
-class ClienteCreateView(LoginRequiredMixin, CreateView):
-    model = Cliente
-    form_class = ClienteForm
-    template_name = 'inventario/cliente_form.html'
-    success_url = reverse_lazy('inventario:cliente_list')
-
-class ClienteUpdateView(LoginRequiredMixin, UpdateView):
-    model = Cliente
-    form_class = ClienteForm
-    template_name = 'inventario/cliente_form.html'
-    success_url = reverse_lazy('inventario:cliente_list')
-
-class ClienteDeleteView(LoginRequiredMixin, DeleteView):
-    model = Cliente
-    template_name = 'inventario/cliente_confirm_delete.html'
-    success_url = reverse_lazy('inventario:cliente_list')
-
-# --- Vistas para Cotizaciones ---
-DetalleCotizacionFormSet = inlineformset_factory(Cotizacion, DetalleCotizacion, form=DetalleCotizacionForm, extra=1, can_delete=True)
-
-class CotizacionListView(LoginRequiredMixin, ListView):
-    model = Cotizacion
-    template_name = 'inventario/cotizacion_list.html'
-    context_object_name = 'cotizaciones'
-    ordering = ['-fecha_creacion']
-
-class CotizacionDetailView(LoginRequiredMixin, DetailView):
-    model = Cotizacion
-    template_name = 'inventario/cotizacion_detail.html'
-    context_object_name = 'cotizacion'
-
-class CotizacionCreateView(LoginRequiredMixin, CreateView):
-    model = Cotizacion
-    form_class = CotizacionForm
-    template_name = 'inventario/cotizacion_form.html'
-    success_url = reverse_lazy('inventario:cotizacion_list')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['detalle_formset'] = DetalleCotizacionFormSet(self.request.POST, instance=self.object)
-        else:
-            context['detalle_formset'] = DetalleCotizacionFormSet(instance=self.object)
-        return context
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        detalle_formset = context['detalle_formset']
-        with transaction.atomic():
-            self.object = form.save()
-            if detalle_formset.is_valid():
-                detalle_formset.instance = self.object
-                detalles = detalle_formset.save(commit=False)
-                total_cotizado = 0
-                for detalle in detalles:
-                    if detalle.producto:
-                        detalle.nombre_producto_cotizado = detalle.producto.nombre
-                        detalle.marca = detalle.producto.marca
-                        detalle.modelo = detalle.producto.modelo
-                        detalle.precio_unitario = detalle.producto.precio
-                    detalle.subtotal = detalle.cantidad * detalle.precio_unitario
-                    total_cotizado += detalle.subtotal
-                    detalle.save()
-                form.instance.total_cotizado = total_cotizado
-                form.instance.save(update_fields=['total_cotizado'])
-            else:
-                return self.form_invalid(form)
-        return super().form_valid(form)
-
-class CotizacionUpdateView(LoginRequiredMixin, UpdateView):
-    model = Cotizacion
-    form_class = CotizacionForm
-    template_name = 'inventario/cotizacion_form.html'
-    success_url = reverse_lazy('inventario:cotizacion_list')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['detalle_formset'] = DetalleCotizacionFormSet(self.request.POST, instance=self.object)
-        else:
-            context['detalle_formset'] = DetalleCotizacionFormSet(instance=self.object)
-        return context
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        detalle_formset = context['detalle_formset']
-        with transaction.atomic():
-            self.object = form.save()
-            if detalle_formset.is_valid():
-                detalle_formset.instance = self.object
-                detalles = detalle_formset.save(commit=False)
-                total_cotizado = 0
-                for detalle in detalles:
-                    if detalle.producto:
-                        detalle.nombre_producto_cotizado = detalle.producto.nombre
-                        detalle.marca = detalle.producto.marca
-                        detalle.modelo = detalle.producto.modelo
-                        detalle.precio_unitario = detalle.producto.precio
-                    detalle.subtotal = detalle.cantidad * detalle.precio_unitario
-                    total_cotizado += detalle.subtotal
-                    detalle.save()
-                form.instance.total_cotizado = total_cotizado
-                form.instance.save(update_fields=['total_cotizado'])
-            else:
-                return self.form_invalid(form)
-        return super().form_valid(form)
-
-class CotizacionDeleteView(LoginRequiredMixin, DeleteView):
-    model = Cotizacion
-    template_name = 'inventario/cotizacion_confirm_delete.html'
-    success_url = reverse_lazy('inventario:cotizacion_list')
-
-def cotizacion_accept(request, pk):
-    if not request.user.is_authenticated:
-        return redirect('inventario:login') # Redirigir si no está autenticado
-    cotizacion = get_object_or_404(Cotizacion, pk=pk)
-    if request.method == 'POST':
-        if cotizacion.estado == 'abierta':
-            with transaction.atomic():
-                # Create OrdenSalida as a record of the accepted quote
-                orden_salida = OrdenSalida.objects.create(
-                    cliente=cotizacion.cliente.nombre,
-                    cotizacion_origen=cotizacion,
-                    total=cotizacion.total_cotizado
-                )
-                # Change cotizacion status to 'aceptada'
-                cotizacion.estado = 'aceptada'
-                cotizacion.save(update_fields=['estado'])
-
-                # Redirect to the NotaDespacho creation form, pre-filling with this order
-                return redirect('inventario:nota_despacho_create_from_order', orden_salida_id=orden_salida.pk)
-        else:
-            return HttpResponse("La cotización no está en estado 'abierta' para ser aceptada.", status=400)
-    return HttpResponse("Método no permitido.", status=405)
-
-
-class CotizacionesInterfaceView(LoginRequiredMixin, TemplateView):
-    template_name = 'inventario/cotizaciones_interface.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['productos'] = Producto.objects.filter(cantidad__gt=0).order_by('nombre')
-        context['clientes'] = Cliente.objects.all().order_by('nombre')
-        return context
-
-@csrf_exempt
-def create_cotizacion_from_interface(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'No autenticado.'}, status=401)
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            cliente_id = data.get('cliente_id')
-            items = data.get('items', [])
-
-            if not cliente_id:
-                return JsonResponse({'status': 'error', 'message': 'Debe seleccionar un cliente.'}, status=400)
-            
-            try:
-                cliente = Cliente.objects.get(id=cliente_id)
-            except Cliente.DoesNotExist:
-                return JsonResponse({'status': 'error', 'message': 'Cliente no encontrado.'}, status=400)
-
-            if not items:
-                return JsonResponse({'status': 'error', 'message': 'No hay ítems en la cotización.'}, status=400)
-
-            total_cotizacion = 0
-            detalles_para_cotizacion = []
-
-            with transaction.atomic():
-                for item_data in items:
-                    product_id = item_data.get('producto_id')
-                    cantidad_solicitada = item_data.get('cantidad')
-                    precio_unitario = item_data.get('precio_unitario')
-                    nombre_producto_cotizado = item_data.get('nombre_producto_cotizado')
-                    marca = item_data.get('marca')
-                    modelo = item_data.get('modelo')
-
-                    if not product_id or not cantidad_solicitada or precio_unitario is None:
-                        raise ValueError("Datos de ítem incompletos para la cotización.")
-                    
-                    try:
-                        producto = Producto.objects.get(id=product_id)
-                    except Producto.DoesNotExist:
-                        raise ValueError(f"Producto con ID {product_id} no encontrado.")
-
-                    if cantidad_solicitada <= 0:
-                        raise ValueError(f"Cantidad inválida para {producto.nombre}.")
-                    
-                    subtotal_item = float(precio_unitario) * cantidad_solicitada
-                    total_cotizacion += subtotal_item
-                    detalles_para_cotizacion.append({
-                        'producto': producto,
-                        'cantidad': cantidad_solicitada,
-                        'precio_unitario': float(precio_unitario),
-                        'subtotal': subtotal_item,
-                        'nombre_producto_cotizado': nombre_producto_cotizado,
-                        'marca': marca,
-                        'modelo': modelo
-                    })
-                
-                cotizacion = Cotizacion.objects.create(
-                    cliente=cliente,
-                    total_cotizado=total_cotizacion,
-                    estado='abierta'
-                )
-
-                for item_data in detalles_para_cotizacion:
-                    DetalleCotizacion.objects.create(
-                        cotizacion=cotizacion,
-                        producto=item_data['producto'],
-                        cantidad=item_data['cantidad'],
-                        precio_unitario=item_data['precio_unitario'],
-                        subtotal=item_data['subtotal'],
-                        nombre_producto_cotizado=item_data['nombre_producto_cotizado'],
-                        marca=item_data['marca'],
-                        modelo=item_data['modelo']
-                    )
-
-            return JsonResponse({'status': 'success', 'message': f'Cotización {cotizacion.numero_cotizacion} creada con éxito.', 'cotizacion_id': cotizacion.id})
-
-        except ValueError as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Error interno del servidor: {e}'}, status=500)
-    
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
-
-@csrf_exempt
-def get_cotizacion_details_api(request, pk):
-    if not request.user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'No autenticado.'}, status=401)
-    """
-    API endpoint to get details of a Cotizacion, including its DetalleCotizacion items.
-    """
-    try:
-        cotizacion = Cotizacion.objects.get(pk=pk)
-        detalles = cotizacion.detalles.all().values(
-            'id', 'producto_id', 'nombre_producto_cotizado', 'marca', 'modelo', 'cantidad', 'cantidad_entregada', 'precio_unitario'
-        )
-        return JsonResponse({'status': 'success', 'detalles': list(detalles)})
-    except Cotizacion.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Cotización no encontrada.'}, status=404)
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 # --- Vistas para Pagos a Proveedores ---
 class PagoProveedorListView(LoginRequiredMixin, ListView):
@@ -2160,6 +1748,8 @@ class ProveedorManagementView(LoginRequiredMixin, TemplateView):
         proveedores = Proveedor.objects.all().order_by('nombre')
         proveedores_data = []
 
+        # Asegúrate de que Sum y Q estén importados al principio del archivo
+        from django.db.models import Sum, Q 
         for proveedor in proveedores:
             # Total pagado al proveedor
             total_pagado = PagoProveedor.objects.filter(proveedor=proveedor).aggregate(Sum('monto'))['monto__sum'] or 0
@@ -2205,17 +1795,12 @@ def movimiento_crear(request):
     tipos_movimiento = TipoMovimiento.objects.all().order_by('nombre')
     almacenes = Almacen.objects.all().order_by('nombre')
 
-    # Convertir productos a un formato JSON seguro para JS
-    # Ya no necesitas all_products_data JSON.dumps aquí si lo pasas al template
-    # y lo construyes en JS como en cotizaciones_interface.html
-    # La clave es pasar el queryset 'productos' directamente.
-
     context = {
-        'form': MovimientoForm(), # Si usas un formulario, si no, puedes eliminarlo
+        'form': MovimientoForm(),
         'productos': productos,
         'tipos_movimiento': tipos_movimiento,
         'almacenes': almacenes,
-        'selected_products_initial_json': '[]' # Para iniciar sin productos seleccionados si es una creación
+        'selected_products_initial_json': '[]'
     }
     return render(request, 'inventario/movimiento_crear.html', context)
 
@@ -2306,3 +1891,18 @@ def crear_movimiento_from_interface(request):
         transaction.set_rollback(True)
         print(f"Error inesperado al crear movimiento: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocurrió un error inesperado al crear el movimiento.'}, status=500)
+
+# --- Vistas de Manejo de Errores Personalizadas ---
+def custom_404_view(request, exception):
+    """
+    Vista personalizada para errores 404 (Página no encontrada).
+    Renderiza la plantilla '404.html'.
+    """
+    return render(request, '404.html', status=404)
+
+def custom_500_view(request):
+    """
+    Vista personalizada para errores 500 (Error interno del servidor).
+    Renderiza la plantilla '500.html'.
+    """
+    return render(request, '500.html', status=500)
