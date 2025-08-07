@@ -25,6 +25,10 @@ urlpatterns = [
     path('productos/exportar-pdf/', views.export_productos_pdf, name='export_productos_pdf'),
     path('productos/importar-excel/', views.import_productos_excel, name='import_productos_excel'),
     path('productos/exportar-etiquetas-pdf/', views.export_product_labels_pdf, name='export_product_labels_pdf'),
+     # **NUEVA LÍNEA** - URL para obtener los productos en formato JSON para la interfaz POS
+    path('productos/json/', views.product_list_json, name='product_list_json'),
+    # Nueva URL para obtener la lista de productos en formato JSON
+    path('api/productos/list/', views.get_product_list_json, name='api_product_list'),
 
 
     # URLs existentes para movimientos
@@ -44,15 +48,15 @@ urlpatterns = [
     path('guias-salida/<int:pk>/editar/', views.GuiaSalidaUpdateView.as_view(), name='guia_salida_update'),
     path('guias-salida/<int:pk>/eliminar/', views.GuiaSalidaDeleteView.as_view(), name='guia_salida_delete'),
 
-    # URLs existentes para notas de despacho
+      # URLs para Notas de Despacho (Nueva interfaz de creación)
+    path('notas-despacho/crear/', views.NotaDespachoInterfaceView.as_view(), name='nota_despacho_create'),
+    path('notas-despacho/editar/<int:pk>/', views.NotaDespachoInterfaceView.as_view(), name='nota_despacho_update'),
+    path('api/notas-despacho/crear/', views.create_nota_despacho_from_interface, name='create_nota_despacho_from_interface'),
+    path('api/productos-for-dispatch/', views.get_product_list_for_dispatch, name='get_product_list_for_dispatch'),
     path('notas-despacho/', views.NotaDespachoListView.as_view(), name='nota_despacho_list'),
-    path('notas-despacho/crear/', views.crear_nota_despacho, name='nota_despacho_create'),
-    # Esta es la línea corregida, eliminando la duplicada e incorrecta
-    path('notas-despacho/crear-desde-orden/<int:orden_salida_id>/', views.crear_nota_despacho_desde_orden, name='crear_nota_despacho_desde_orden'),
+    path('notas-despacho/exportar-excel/', views.export_notas_despacho_excel, name='export_notas_despacho_excel'),
     path('notas-despacho/<int:pk>/', views.NotaDespachoDetailView.as_view(), name='nota_despacho_detail'),
-    path('notas-despacho/<int:pk>/editar/', views.editar_nota_despacho, name='nota_despacho_update'),
     path('notas-despacho/<int:pk>/eliminar/', views.NotaDespachoDeleteView.as_view(), name='nota_despacho_delete'),
-    path('notas-despacho/exportar-pdf/<int:pk>/', views.generate_nota_despacho_pdf, name='generate_nota_despacho_pdf'),
     # API para obtener detalles de cotización (se mantiene)
     path('api/cotizaciones/<int:pk>/details/', views.get_cotizacion_details_api, name='api_cotizacion_details'),
     path('get-productos-from-cotizacion/<int:pk>/', views.get_productos_from_cotizacion, name='get_productos_from_cotizacion'),
@@ -85,7 +89,8 @@ urlpatterns = [
     # URL para la interfaz de cotizaciones (Mini POS original)
     path('cotizaciones/interface/', views.CotizacionesInterfaceView.as_view(), name='cotizaciones_interface'),
     path('cotizaciones/create_from_interface/', views.create_cotizacion_from_interface, name='create_cotizacion_from_interface'),
-
+# Esta es la URL corregida para la vista de detalles en JSON
+    path('cotizaciones/<int:pk>/json/', views.cotizacion_detail_json, name='cotizacion_detail_json'),
 
     # URLs para Pagos a Proveedores
     path('pagos-proveedor/', views.PagoProveedorListView.as_view(), name='pago_proveedor_list'),
@@ -103,6 +108,10 @@ urlpatterns = [
      # Rutas para Movimientos
     path('movimientos/crear/', views.movimiento_crear, name='movimiento_crear'),
     path('api/movimiento/crear/', views.crear_movimiento_from_interface, name='crear_movimiento_from_interface'),
+
+    # --- API URLs para la interfaz de Notas de Despacho ---
+    path('api/productos/despacho/', views.api_get_products_for_dispatch, name='api_get_products_for_dispatch'),
+    path('api/orden-salida/<int:pk>/detalles/', views.api_get_orden_salida_details, name='api_get_orden_salida_details'),
 ]
 
 # Define los manejadores de errores personalizados

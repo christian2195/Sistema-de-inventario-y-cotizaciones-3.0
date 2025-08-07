@@ -16,669 +16,98 @@
         <form method="post" id="nota-despacho-form" class="space-y-6">
             {% csrf_token %}
 
+            {# Django Management Form - Se mantendrá oculto y se actualizará por JS #}
             {{ detalle_formset.management_form }}
 
-            {% if form.errors %}
+            {# Errores globales del formulario principal #}
+            {% if form.errors or formset.non_form_errors %}
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                     <strong class="font-bold">¡Error!</strong>
                     <span class="block sm:inline">Por favor, corrija los siguientes errores:</span>
                     <ul class="mt-2 list-disc list-inside">
+                        {% if form.non_field_errors %}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        {% endif %}
                         {% for field, errors in form.errors.items %}
                             {% if field != '__all__' %}
-                                <li>{{ field|capfirst }}: {{ errors|join:", " }}</li>
-                            {% else %}
-                                <li>{{ errors|join:", " }}</li>
+                                <li><strong>{{ field|verbose_name }}:</strong> {{ errors|join:", " }}</li>
                             {% endif %}
                         {% endfor %}
                     </ul>
                 </div>
             {% endif %}
 
-            {% if detalle_formset.errors %}
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <strong class="font-bold">¡Error en los detalles!</strong>
-                    <span class="block sm:inline">Hay problemas con los productos despachados:</span>
-                    <ul class="mt-2 list-disc list-inside">
-                        {% for form_errors in detalle_formset.errors %}
-                            {% if form_errors %}
-                                {% for field, errors in form_errors.items %}
-                                    <li>{{ field|capfirst }}: {{ errors|join:", " }}</li>
-                                {% endfor %}
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
+            {# Campos principales del formulario #}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="{{ form.numero_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Número de Despacho</label>
+                    {{ form.numero_despacho }}
                 </div>
-            {% endif %}
+                <div>
+                    <label for="{{ form.fecha_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Fecha de Despacho</label>
+                    {{ form.fecha_despacho }}
+                </div>
+                <div>
+                    <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium text-gray-700">Cliente</label>
+                    {{ form.cliente }}
+                </div>
+                <div>
+                    <label for="{{ form.almacen_origen.id_for_label }}" class="block text-sm font-medium text-gray-700">Almacén de Origen</label>
+                    {{ form.almacen_origen }}
+                </div>
+                <div>
+                    <label for="{{ form.orden_salida_referencia.id_for_label }}" class="block text-sm font-medium text-gray-700">Orden de Salida Asociada</label>
+                    {{ form.orden_salida_referencia }}
+                </div>
+            </div>
 
+            <div class="mb-4">
+                <label for="{{ form.observaciones.id_for_label }}" class="block text-sm font-medium text-gray-700">Observaciones</label>
+                {{ form.observaciones }}
+            </div>
+
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Detalles del Despacho</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-gray-50 p-6 rounded-lg shadow-inner space-y-4">
-                    <h2 class="text-xl font-semibold mb-4 text-green-700">Datos Generales de la Nota</h2>
-                    
+                {# Columna de selección de productos (tipo POS) #}
+                <div class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                    <h3 class="text-xl font-bold mb-2 text-gray-700">Productos Disponibles</h3>
                     <div class="mb-4">
-                        <label for="cotizacion-selector" class="block text-gray-700 text-sm font-bold mb-2">
-                            Cargar Productos desde Cotización:
-                        </label>
-                        <select id="cotizacion-selector" class="block w-full border border-gray-300 rounded-md py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                            <option value="">--- Seleccione una cotización ---</option>
-                            {% for cotizacion in cotizaciones %}
-                                <option value="{{ cotizacion.pk }}">
-                                    {{ cotizacion.numero_cotizacion }} (Cliente: {{ cotizacion.cliente.nombre }})
-                                </option>
-                            {% endfor %}
-                        </select>
+                        <input type="text" id="product-search" placeholder="Buscar producto..." class="w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50">
                     </div>
-                    <div>
-                        <label for="{{ form.numero_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.numero_despacho.label }}
-                        </label>
-                        {{ form.numero_despacho }}
-                        {% for error in form.numero_despacho.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.fecha_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.fecha_despacho.label }}
-                        </label>
-                        {{ form.fecha_despacho }}
-                        {% for error in form.fecha_despacho.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.cliente.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            Nombre del Beneficiario:
-                        </label>
-                        {{ form.cliente }}
-                        {% for error in form.cliente.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.proveedor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.proveedor.label }}:
-                        </label>
-                        {{ form.proveedor }}
-                        {% for error in form.proveedor.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.orden_asociada.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.orden_asociada.label }}:
-                        </label>
-                        {{ form.orden_asociada }}
-                        {% for error in form.orden_asociada.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.almacen_origen.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.almacen_origen.label }}
-                        </label>
-                        {{ form.almacen_origen }}
-                        {% for error in form.almacen_origen.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.tipo_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.tipo_despacho.label }}
-                        </label>
-                        {{ form.tipo_despacho }}
-                        {% for error in form.tipo_despacho.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div>
-                        <label for="{{ form.observaciones.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                            {{ form.observaciones.label }}
-                        </label>
-                        {{ form.observaciones }}
-                        {% for error in form.observaciones.errors %}
-                            <p class="text-red-500 text-xs italic">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-
-                    <div class="border-t pt-4 mt-6">
-                        <h2 class="text-xl font-semibold mb-4 text-green-700">Información de Receptor y Transportista</h2>
-                        <div class="space-y-4">
-                            <div>
-                                <label for="{{ form.nombre_receptor_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    {{ form.nombre_receptor_despacho.label }}
-                                </label>
-                                {{ form.nombre_receptor_despacho }}
-                                {% for error in form.nombre_receptor_despacho.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.ci_receptor_despacho.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    {{ form.ci_receptor_despacho.label }}
-                                </label>
-                                {{ form.ci_receptor_despacho }}
-                                {% for error in form.ci_receptor_despacho.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.nombre_conductor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    Nombre del Conductor:
-                                </label>
-                                 {{ form.nombre_conductor }}
-                                {% for error in form.nombre_conductor.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.ci_conductor.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    C.I. del Conductor:
-                                </label>
-                        {{ form.ci_conductor }}
-                            {% for error in form.ci_conductor.errors %}
-                                        <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.tipo_vehiculo.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    {{ form.tipo_vehiculo.label }}
-                                </label>
-                                {{ form.tipo_vehiculo }}
-                                {% for error in form.tipo_vehiculo.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.color_vehiculo.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    {{ form.color_vehiculo.label }}
-                                </label>
-                                {{ form.color_vehiculo }}
-                                {% for error in form.color_vehiculo.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                            <div>
-                                <label for="{{ form.placa_vehiculo.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">
-                                    {{ form.placa_vehiculo.label }}
-                                </label>
-                                {{ form.placa_vehiculo }}
-                                {% for error in form.placa_vehiculo.errors %}
-                                    <p class="text-red-500 text-xs italic">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        </div>
+                    <div id="product-list" class="space-y-2 max-h-96 overflow-y-auto">
+                        {# Las tarjetas de productos se renderizarán aquí por JS #}
                     </div>
                 </div>
 
-                <div class="bg-green-50 p-6 rounded-lg shadow-inner flex flex-col h-full">
-                    <h2 class="text-xl font-semibold mb-4 text-green-700">Productos a Despachar</h2>
-
-                    <div class="mb-4">
-                        <input type="text" id="product-search" placeholder="Buscar producto por nombre o SKU..." class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                {# Columna de productos a despachar #}
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-xl font-bold mb-2 text-green-700">Productos a Despachar</h3>
+                    <div id="despached-items" class="space-y-2">
+                        {# Los detalles del formset se renderizarán aquí #}
                     </div>
-
-                    <div id="product-selection-list" class="flex-grow overflow-y-auto border border-gray-200 rounded-md p-2 mb-4 max-h-96">
-                        <p class="text-gray-600 text-center" id="no-products-message">Cargando productos...</p>
-                    </div>
-
-                    <h3 class="text-lg font-semibold mb-3 text-green-700 border-t pt-4">Ítems en Nota de Despacho</h3>
-                    <div id="despached-items-list" class="flex-grow overflow-y-auto border border-gray-200 rounded-md p-2 mb-4 min-h-[150px]">
-                        <p class="text-gray-600 text-center" id="empty-despached-message">No hay productos en la nota de despacho.</p>
-                    </div>
-
-                    <div class="flex justify-between items-center border-t pt-4 mt-auto">
-                        <p class="text-lg font-bold text-gray-800">Total Ítems:</p>
-                        <p class="text-2xl font-extrabold text-green-800" id="total-despached-items">0</p>
-                    </div>
-                    <div class="mt-4 flex justify-end space-x-4">
-                        <button type="button" id="clear-despached-btn" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Vaciar Nota</button>
+                    <div id="empty-despachados-message" class="text-center text-gray-500 mt-4 hidden">
+                        Aún no se han añadido productos.
                     </div>
                 </div>
             </div>
-            
-            <div class="flex justify-end space-x-4 mt-6">
-                <a href="{% url 'inventario:nota_despacho_list' %}" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Cancelar</a>
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                    {% if form.instance.pk %}Guardar Cambios{% else %}Crear Nota de Despacho{% endif %}
+
+            {# Botones de acción #}
+            <div class="flex justify-end space-x-4 mt-8">
+                <a href="{% url 'inventario:nota_despacho_list' %}" class="bg-gray-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600 transition duration-300">
+                    Cancelar
+                </a>
+                <button type="submit" id="save-button" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300">
+                    Guardar Nota de Despacho
                 </button>
             </div>
         </form>
     </div>
-{% if detalle_formset.non_form_errors %}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <strong class="font-bold">¡Errores globales en los detalles de productos!</strong>
-        <ul>
-            {% for error in detalle_formset.non_form_errors %}
-                <li>{{ error }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-{% endif %}
 
-    <div id="despached-items-container" class="space-y-4">
-    {% for form in detalle_formset %}
-    <div class="product-card" data-form-id="{{ form.instance.pk|default:'new' }}">
-            {% if form.non_field_errors %}
-    <div class="text-red-600 text-sm mt-1 mb-2">
-                    {% for error in form.non_field_errors %}
-                        {{ error }}
-                    {% endfor %}
-    </div>
-            {% endif %}
-
-        <div class="flex-grow">
-        <p class="font-semibold">
-            {% if form.nombre_producto_despacho.value %}
-                {{ form.nombre_producto_despacho.value }}
-            {% elif form.instance.producto %}
-                {{ form.instance.producto.nombre }}
-            {% endif %}
-        </p>
-        <p class="text-sm text-gray-600">
-            {% if form.marca.value %}
-                {{ form.marca.value }}
-            {% elif form.instance.producto %}
-                {{ form.instance.producto.marca }}
-            {% endif %}
-            {% if form.modelo.value %}
-                - {{ form.modelo.value }}
-            {% elif form.instance.producto %}
-                - {{ form.instance.producto.modelo }}
-            {% endif %}
-        </p>
-    </div>
-    <div class="flex items-center space-x-2">
-                <label for="{{ form.cantidad.id_for_label }}" class="sr-only">Cantidad:</label>
-                {{ form.cantidad }}
-                {% if form.cantidad.errors %}
-     <div class="text-red-600 text-sm mt-1">
-                        {% for error in form.cantidad.errors %}
-                            {{ error }}
-                        {% endfor %}
-     </div>
-                {% endif %}
-
-                {{ form.id }}
-                {{ form.DELETE }}
-                {{ form.producto }}
-                {{ form.nombre_producto_despacho }}
-                {{ form.marca }}
-                {{ form.modelo }}
-                {{ form.detalle_cotizacion_origen }}
-
-
-                <button type="button" class="remove-item-button bg-red-500 text-white rounded-full p-2 hover:bg-red-600">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zm2 3a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clip-rule="evenodd"></path>
-                    </svg>
-                </button>
-    </div>
-    </div>
-    {% endfor %}
-    </div>
-   <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('nota-despacho-form');
-            const productSearchInput = document.getElementById('product-search');
-            const productSelectionList = document.getElementById('product-selection-list');
-            const despachedItemsList = document.getElementById('despached-items-list');
-            const totalDespachedItemsSpan = document.getElementById('total-despached-items');
-            const emptyDespachedMessage = document.getElementById('empty-despached-message');
-            const noProductsMessage = document.getElementById('no-products-message');
-            const clearDespachedBtn = document.getElementById('clear-despached-btn');
-            const cotizacionSelector = document.getElementById('cotizacion-selector');
-
-
-            const allProducts = JSON.parse('{{ all_products_json|escapejs }}');
-            const initialDetalles = JSON.parse('{{ initial_dispatch_items_json|escapejs }}');
-
-            console.log('Productos cargados (allProducts):', allProducts);
-            console.log('Detalles iniciales (initialDetalles):', initialDetalles);
-
-            const productMap = {};
-            allProducts.forEach(p => {
-                productMap[p.id] = p;
-            });
-
-            const despachedItems = {};
-
-            function renderProductList(filterText = '') {
-                productSelectionList.innerHTML = '';
-                const filteredProducts = allProducts.filter(p =>
-                    p.nombre.toLowerCase().includes(filterText.toLowerCase()) ||
-                    p.sku.toLowerCase().includes(filterText.toLowerCase())
-                );
-
-                if (filteredProducts.length === 0) {
-                    productSelectionList.innerHTML = `<p class="text-gray-600 text-center p-4">No se encontraron productos.</p>`;
-                    return;
-                }
-
-                filteredProducts.forEach(product => {
-                    const productCard = document.createElement('div');
-                    productCard.className = 'flex justify-between items-center bg-white p-3 rounded-md shadow-sm border border-gray-200 mb-2';
-                    productCard.innerHTML = `
-                        <div>
-                            <p class="font-semibold text-gray-800">${product.nombre} (SKU: ${product.sku})</p>
-                            <p class="text-sm text-gray-600">Marca: ${product.marca || 'N/A'} | Modelo: ${product.modelo || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">Stock Actual: <span class="font-bold text-blue-700">${product.cantidad}</span> ${product.unidad_medida__abreviatura || ''}</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <input type="number" min="1" value="1" class="w-20 p-1 border border-gray-300 rounded-md text-center text-sm add-qty-input" data-product-id="${product.id}">
-                            <button type="button" class="px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 add-to-despached-btn" data-product-id="${product.id}">Añadir</button>
-                        </div>
-                    `;
-                    productSelectionList.appendChild(productCard);
-                });
-                noProductsMessage.style.display = 'none';
-            }
-
-            function renderDespachedItems() {
-                despachedItemsList.innerHTML = '';
-                let totalItemsCount = 0;
-                let hasVisibleItems = false;
-
-                for (const productId in despachedItems) {
-                    const item = despachedItems[productId];
-                    if (item.isDeleted) continue;
-
-                    hasVisibleItems = true;
-                    totalItemsCount += item.quantity;
-
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'flex justify-between items-center bg-white p-3 rounded-md shadow-sm border border-gray-200 mb-2';
-                    itemDiv.innerHTML = `
-                        <div class="flex-grow">
-                            <p class="font-semibold text-gray-800">${item.name}</p>
-                            <p class="text-sm text-gray-600">Marca: ${item.brand || 'N/A'} | Modelo: ${item.model || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">Cantidad: <input type="number" min="1" value="${item.quantity}" class="w-16 p-1 border border-gray-300 rounded-md text-center text-sm update-qty-input" data-product-id="${productId}" data-original-quantity="${item.originalQuantity || 0}" data-current-stock="${item.currentStock}"></p>
-                        </div>
-                        <button type="button" class="px-2 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 remove-despached-btn" data-product-id="${productId}">X</button>
-                    `;
-                    despachedItemsList.appendChild(itemDiv);
-                }
-
-                emptyDespachedMessage.style.display = hasVisibleItems ? 'none' : 'block';
-                totalDespachedItemsSpan.textContent = totalItemsCount;
-            }
-
-            productSearchInput.addEventListener('input', function() {
-                renderProductList(this.value);
-            });
-
-            productSelectionList.addEventListener('click', function(event) {
-                if (event.target.classList.contains('add-to-despached-btn')) {
-                    const productId = parseInt(event.target.dataset.productId);
-                    const quantityInput = productSelectionList.querySelector(`.add-qty-input[data-product-id="${productId}"]`);
-                    let quantity = parseInt(quantityInput.value);
-
-                    if (isNaN(quantity) || quantity <= 0) {
-                        alert('La cantidad debe ser un número positivo.');
-                        return;
-                    }
-
-                    const product = productMap[productId];
-                    if (!product) {
-                        alert('Producto no encontrado.');
-                        return;
-                    }
-
-                    let availableStock = parseFloat(product.cantidad);
-                    if (despachedItems[productId] && !despachedItems[productId].isDeleted) {
-                        availableStock = parseFloat(product.cantidad) + despachedItems[productId].originalQuantity;
-                    }
-
-                    if (quantity > availableStock) {
-                        alert(`No hay suficiente stock para ${product.nombre}. Stock disponible para añadir: ${availableStock}.`);
-                        return;
-                    }
-
-                    if (despachedItems[productId]) {
-                        despachedItems[productId].quantity += quantity;
-                        despachedItems[productId].isDeleted = false;
-                    } else {
-                        despachedItems[productId] = {
-                            name: product.nombre,
-                            brand: product.marca,
-                            model: product.modelo,
-                            quantity: quantity,
-                            originalPk: null,
-                            originalQuantity: 0,
-                            isDeleted: false,
-                            currentStock: parseFloat(product.cantidad)
-                        };
-                    }
-                    renderDespachedItems();
-                    quantityInput.value = 1;
-                }
-            });
-
-            despachedItemsList.addEventListener('input', function(event) {
-                if (event.target.classList.contains('update-qty-input')) {
-                    const productId = parseInt(event.target.dataset.productId);
-                    let newQuantity = parseInt(event.target.value);
-                    const currentStock = parseFloat(event.target.dataset.currentStock);
-                    const originalQuantity = parseFloat(event.target.dataset.originalQuantity);
-
-                    if (isNaN(newQuantity) || newQuantity <= 0) {
-                        newQuantity = 1;
-                        event.target.value = 1;
-                    }
-                    
-                    let effectiveStock = currentStock;
-                    if (despachedItems[productId] && despachedItems[productId].originalPk) {
-                        effectiveStock = currentStock + originalQuantity;
-                    }
-
-                    if (newQuantity > effectiveStock) {
-                        alert(`No hay suficiente stock para despachar ${newQuantity} unidades de este producto. Stock disponible: ${effectiveStock}.`);
-                        event.target.value = despachedItems[productId].quantity;
-                        return;
-                    }
-
-                    despachedItems[productId].quantity = newQuantity;
-                    renderDespachedItems();
-                }
-            });
-
-            despachedItemsList.addEventListener('click', function(event) {
-                if (event.target.classList.contains('remove-despached-btn')) {
-                    const productId = parseInt(event.target.dataset.productId);
-
-                    if (despachedItems[productId].originalPk) {
-                        despachedItems[productId].isDeleted = true;
-                    } else {
-                        delete despachedItems[productId];
-                    }
-                    renderDespachedItems();
-                }
-            });
-
-            clearDespachedBtn.addEventListener('click', function() {
-                if (confirm('¿Estás seguro de que quieres vaciar todos los ítems de la nota de despacho?')) {
-                    for (const productId in despachedItems) {
-                        if (despachedItems[productId].originalPk) {
-                            despachedItems[productId].isDeleted = true;
-                        } else {
-                            delete despachedItems[productId];
-                        }
-                    }
-                    renderDespachedItems();
-                }
-            });
-
-            // --- Lógica para cargar productos desde una cotización ---
-            cotizacionSelector.addEventListener('change', function() {
-                const cotizacionId = this.value;
-                if (!cotizacionId) {
-                    clearDespachedItems();
-                    return;
-                }
-
-                fetch(`/inventario/get-productos-from-cotizacion/${cotizacionId}/`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            clearDespachedItems();
-
-                            data.productos.forEach(p => {
-                                const productId = p.id;
-                                const currentStock = parseFloat(productMap[productId].cantidad);
-
-                                if (p.quantity > currentStock) {
-                                    alert(`Advertencia: No hay suficiente stock para ${p.name}. Stock disponible: ${currentStock}.`);
-                                    return;
-                                }
-
-                                despachedItems[productId] = {
-                                    name: p.name,
-                                    brand: p.brand,
-                                    model: p.model,
-                                    quantity: p.quantity,
-                                    originalPk: null,
-                                    originalQuantity: 0,
-                                    isDeleted: false,
-                                    currentStock: currentStock,
-                                    detalleCotizacionOrigen: p.detalleCotizacionOrigenPk,
-                                };
-                            });
-
-                            renderDespachedItems();
-                        } else {
-                            alert(`Error al cargar la cotización: ${data.error}`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error en la llamada AJAX:', error);
-                        alert('Ocurrió un error inesperado al cargar la cotización.');
-                    });
-            });
-
-            function clearDespachedItems() {
-                for (const productId in despachedItems) {
-                    delete despachedItems[productId];
-                }
-                renderDespachedItems();
-            }
-
-            function loadInitialDetalles() {
-                initialDetalles.forEach(detalle => {
-                    const productId = detalle.producto;
-                    if (productMap[productId]) {
-                        despachedItems[productId] = {
-                            name: detalle.nombre_producto_despacho || productMap[productId].nombre,
-                            brand: detalle.marca || productMap[productId].marca,
-                            model: detalle.modelo || productMap[productId].modelo,
-                            quantity: detalle.cantidad,
-                            originalPk: detalle.id,
-                            originalQuantity: detalle.cantidad,
-                            isDeleted: false,
-                            currentStock: parseFloat(productMap[productId].cantidad),
-                            detalleCotizacionOrigen: detalle.detalle_cotizacion_origen
-                        };
-                    }
-                });
-                renderDespachedItems();
-            }
-
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
-
-                document.querySelectorAll('.dynamic-formset-field').forEach(input => input.remove());
-
-                let formIdx = 0;
-                let initialFormsCount = 0;
-
-                for (const productId in despachedItems) {
-                    const item = despachedItems[productId];
-
-                    if (item.originalPk) {
-                        const idInput = document.createElement('input');
-                        idInput.type = 'hidden';
-                        idInput.name = `detalles-${formIdx}-id`;
-                        idInput.value = item.originalPk;
-                        idInput.classList.add('dynamic-formset-field');
-                        form.appendChild(idInput);
-                        initialFormsCount++;
-                    }
-
-                    const deleteInput = document.createElement('input');
-                    deleteInput.type = 'hidden';
-                    deleteInput.name = `detalles-${formIdx}-DELETE`;
-                    deleteInput.value = item.isDeleted ? 'on' : 'off';
-                    deleteInput.classList.add('dynamic-formset-field');
-                    form.appendChild(deleteInput);
-
-                    if (!item.isDeleted) {
-                        const productInput = document.createElement('input');
-                        productInput.type = 'hidden';
-                        productInput.name = `detalles-${formIdx}-producto`;
-                        productInput.value = productId;
-                        productInput.classList.add('dynamic-formset-field');
-                        form.appendChild(productInput);
-
-                        const nameInput = document.createElement('input');
-                        nameInput.type = 'hidden';
-                        nameInput.name = `detalles-${formIdx}-nombre_producto_despacho`;
-                        nameInput.value = item.name;
-                        nameInput.classList.add('dynamic-formset-field');
-                        form.appendChild(nameInput);
-
-                        const brandInput = document.createElement('input');
-                        brandInput.type = 'hidden';
-                        brandInput.name = `detalles-${formIdx}-marca`;
-                        brandInput.value = item.brand;
-                        brandInput.classList.add('dynamic-formset-field');
-                        form.appendChild(brandInput);
-
-                        const modelInput = document.createElement('input');
-                        modelInput.type = 'hidden';
-                        modelInput.name = `detalles-${formIdx}-modelo`;
-                        modelInput.value = item.model;
-                        modelInput.classList.add('dynamic-formset-field');
-                        form.appendChild(modelInput);
-
-                        const quantityInput = document.createElement('input');
-                        quantityInput.type = 'hidden';
-                        quantityInput.name = `detalles-${formIdx}-cantidad`;
-                        quantityInput.value = item.quantity;
-                        quantityInput.classList.add('dynamic-formset-field');
-                        form.appendChild(quantityInput);
-
-                        const detalleCotizacionOrigenInput = document.createElement('input');
-                        detalleCotizacionOrigenInput.type = 'hidden';
-                        detalleCotizacionOrigenInput.name = `detalles-${formIdx}-detalle_cotizacion_origen`;
-                        detalleCotizacionOrigenInput.value = item.detalleCotizacionOrigen || '';
-                        detalleCotizacionOrigenInput.classList.add('dynamic-formset-field');
-                        form.appendChild(detalleCotizacionOrigenInput);
-                    }
-                    formIdx++;
-                }
-
-                document.getElementById('id_detalles-TOTAL_FORMS').value = formIdx;
-                document.getElementById('id_detalles-INITIAL_FORMS').value = initialFormsCount;
-
-                console.log('--- Datos de Formulario y Formset a enviar ---');
-                const formData = new FormData(form);
-                for (let [key, value] of formData.entries()) {
-                    console.log(`${key}: ${value}`);
-                }
-                console.log('--- Fin de Datos a enviar ---');
-                form.submit();
-            });
-
-            loadInitialDetalles();
-            renderProductList();
-        });
-    </script> 
+    {# Área para mensajes de confirmación/error #}
+    <div id="message-area" class="fixed top-0 left-1/2 -translate-x-1/2 w-11/12 max-w-md mt-4 z-50"></div>
 
     <style>
         .product-card {
@@ -704,5 +133,270 @@
             -webkit-appearance: none;
             margin: 0;
         }
+        .message-box {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem;
+            border-width: 1px;
+            font-weight: 700;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .message-box.success {
+            background-color: #d1fae5;
+            border-color: #34d399;
+            color: #065f46;
+        }
+        .message-box.error {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
     </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let availableProducts = [];
+            let despachedItems = {}; // Usamos un objeto para un acceso más rápido por ID
+            let initialFormsCount = 0;
+            let currentOrderId = null;
+
+            // URL para la lista de productos
+            const getProductListUrl = "{% url 'inventario:api_get_products_for_dispatch' %}";
+            const getOrderDetailsUrl = "{% url 'inventario:api_get_orden_salida_details' 0 %}".replace('/0', '');
+
+            function showMessage(message, type) {
+                const messageArea = document.getElementById('message-area');
+                const messageBox = document.createElement('div');
+                messageBox.className = `message-box ${type}`;
+                messageBox.textContent = message;
+                messageArea.innerHTML = '';
+                messageArea.appendChild(messageBox);
+                setTimeout(() => {
+                    messageBox.remove();
+                }, 5000);
+            }
+
+            function getProductById(productId) {
+                return availableProducts.find(p => p.id == productId);
+            }
+
+            function renderProductList(query = '') {
+                const productListDiv = document.getElementById('product-list');
+                productListDiv.innerHTML = '';
+                const filteredProducts = availableProducts.filter(p => 
+                    (p.nombre.toLowerCase().includes(query.toLowerCase()) || 
+                     p.codigo.toLowerCase().includes(query.toLowerCase())) &&
+                    !despachedItems.hasOwnProperty(p.id) // No mostrar productos ya añadidos
+                );
+
+                if (filteredProducts.length === 0) {
+                    productListDiv.innerHTML = '<p class="text-center text-gray-500">No se encontraron productos.</p>';
+                    return;
+                }
+
+                filteredProducts.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.dataset.productId = product.id;
+                    card.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${product.nombre} (${product.codigo})</p>
+                            <p class="text-sm text-gray-600">Stock: ${product.cantidad} ${product.unidad_medida_nombre}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" class="add-qty-input w-20 p-1 text-center border rounded-md" value="1" min="1" max="${product.cantidad}">
+                            <button type="button" class="add-product-btn bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    productListDiv.appendChild(card);
+                });
+            }
+
+            function renderDespachedItems() {
+                const container = document.getElementById('despached-items');
+                container.innerHTML = '';
+                const emptyMessage = document.getElementById('empty-despachados-message');
+
+                if (Object.keys(despachedItems).length === 0) {
+                    emptyMessage.classList.remove('hidden');
+                } else {
+                    emptyMessage.classList.add('hidden');
+                    let formIdx = initialFormsCount;
+                    for (const productId in despachedItems) {
+                        const item = despachedItems[productId];
+                        const product = getProductById(productId);
+                        if (!product) continue;
+
+                        const formCard = document.createElement('div');
+                        formCard.className = 'product-card';
+                        formCard.dataset.productId = product.id;
+                        formCard.innerHTML = `
+                            <div>
+                                <p class="font-semibold">${product.nombre} (${product.codigo})</p>
+                                <p class="text-sm text-gray-600">Stock: ${product.cantidad} ${product.unidad_medida_nombre}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" name="detalles-${formIdx}-cantidad" class="update-qty-input w-20 p-1 text-center border rounded-md" value="${item.cantidad}" min="1" max="${product.cantidad}" ${currentOrderId ? 'readonly' : ''}>
+                                <button type="button" class="remove-product-btn bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="hidden" name="detalles-${formIdx}-producto" value="${product.id}">
+                            <input type="hidden" name="detalles-${formIdx}-id" value="${item.id || ''}">
+                            <input type="hidden" name="detalles-${formIdx}-DELETE" value="off">
+                        `;
+                        container.appendChild(formCard);
+                        formIdx++;
+                    }
+                    // Actualizar el total de formularios
+                    document.getElementById('id_detalles-TOTAL_FORMS').value = formIdx;
+                }
+                attachUpdateQtyEvents();
+                attachRemoveEvents();
+            }
+
+            function addProductToDespached(productId, quantity, id = null) {
+                if (despachedItems.hasOwnProperty(productId)) {
+                    showMessage('Este producto ya ha sido añadido.', 'error');
+                    return;
+                }
+                const product = getProductById(productId);
+                if (!product) return;
+
+                despachedItems[productId] = {
+                    producto_id: productId,
+                    cantidad: quantity,
+                    id: id
+                };
+                renderDespachedItems();
+                renderProductList(document.getElementById('product-search').value);
+            }
+
+            function attachUpdateQtyEvents() {
+                document.querySelectorAll('.update-qty-input').forEach(input => {
+                    input.addEventListener('change', function() {
+                        const card = this.closest('[data-product-id]');
+                        const productId = card.dataset.productId;
+                        despachedItems[productId].cantidad = parseInt(this.value, 10);
+                        renderDespachedItems(); // Forzar re-render para actualizar el total de formularios
+                    });
+                });
+            }
+            
+            function attachRemoveEvents() {
+                document.querySelectorAll('.remove-product-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const card = this.closest('[data-product-id]');
+                        const productId = card.dataset.productId;
+                        delete despachedItems[productId];
+                        renderDespachedItems();
+                        renderProductList(document.getElementById('product-search').value);
+                    });
+                });
+            }
+
+            // Manejador del evento para agregar producto
+            document.getElementById('product-list').addEventListener('click', function(e) {
+                const addBtn = e.target.closest('.add-product-btn');
+                if (addBtn) {
+                    const card = addBtn.closest('[data-product-id]');
+                    const productId = card.dataset.productId;
+                    const qtyInput = card.querySelector('.add-qty-input');
+                    const quantity = parseInt(qtyInput.value, 10);
+                    addProductToDespached(productId, quantity);
+                }
+            });
+
+            // Manejador del evento de búsqueda
+            document.getElementById('product-search').addEventListener('input', function(e) {
+                if (!currentOrderId) {
+                    renderProductList(e.target.value);
+                }
+            });
+            
+            // Manejador de evento para la selección de Orden de Salida
+            const ordenSalidaSelect = document.getElementById('id_orden_salida_referencia');
+            ordenSalidaSelect.addEventListener('change', function() {
+                const ordenId = this.value;
+                if (ordenId) {
+                    currentOrderId = ordenId;
+                    loadOrderDetails(ordenId);
+                    // Ocultar el panel de búsqueda de productos
+                    document.getElementById('product-search').closest('div').style.display = 'none';
+                    document.getElementById('product-list').closest('div').style.display = 'none';
+                } else {
+                    currentOrderId = null;
+                    despachedItems = {}; // Limpiar la lista de despachados
+                    loadInitialData(); // Volver a cargar todos los productos
+                    // Mostrar el panel de búsqueda de productos
+                    document.getElementById('product-search').closest('div').style.display = 'block';
+                    document.getElementById('product-list').closest('div').style.display = 'block';
+                }
+                renderDespachedItems();
+            });
+
+            function loadOrderDetails(orderId) {
+                const url = `${getOrderDetailsUrl}/${orderId}/`;
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Error al cargar los detalles de la orden de salida.');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        despachedItems = {}; // Limpiar la lista actual
+                        data.detalles.forEach(detalle => {
+                            // Añadir los productos de la orden de salida a la lista de despachados
+                            addProductToDespached(detalle.producto_id, detalle.cantidad);
+                        });
+                        // Asegurarse de que el input de cantidad para estos productos sea readonly
+                        renderDespachedItems();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showMessage(error.message, 'error');
+                    });
+            }
+
+            function loadInitialData() {
+                fetch(getProductListUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        availableProducts = data.productos;
+                        renderProductList();
+                        loadInitialDetalles();
+                    })
+                    .catch(error => {
+                        console.error('Error al cargar la lista de productos:', error);
+                        showMessage('Ocurrió un error inesperado al cargar los productos.', 'error');
+                    });
+            }
+
+            function loadInitialDetalles() {
+                // Función para cargar los detalles existentes en modo de edición
+                const formsetContainer = document.getElementById('despached-items');
+                const initialForms = formsetContainer.querySelectorAll('.detalle-form'); // Asumiendo una clase para los formset iniciales
+                initialFormsCount = initialForms.length;
+                
+                initialForms.forEach((form) => {
+                    const productId = form.querySelector('[name$="-producto"]').value;
+                    const cantidad = parseInt(form.querySelector('[name$="-cantidad"]').value, 10);
+                    const detalleId = form.querySelector('[name$="-id"]').value;
+                    addProductToDespached(productId, cantidad, detalleId);
+                });
+            }
+
+            // Cargar datos iniciales al cargar la página
+            loadInitialData();
+            
+        });
+    </script>
 {% endblock %}

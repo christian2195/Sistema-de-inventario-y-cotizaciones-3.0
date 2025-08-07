@@ -10,3 +10,10 @@ def subtract(value, arg):
         return float(value) - float(arg)
     except (ValueError, TypeError):
         return '' # Or handle error as appropriate
+
+@register.filter(name='verbose_name')
+def get_verbose_name(field):
+    """
+    Retorna el verbose_name de un campo del formulario.
+    """
+    return field.field.label

@@ -24,7 +24,8 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
 from weasyprint import HTML
-#from .forms import MovimientoForm
+from django.contrib.auth.decorators import login_required # Importación correcta
+from django.utils.decorators import method_decorator # Importación corregida a su módulo correcto
 
 # Para códigos de barras
 import barcode
@@ -879,6 +880,312 @@ DetalleNotaDespachoFormSet = inlineformset_factory(
     can_delete=True
 )
 
+# --- Vistas para la gestión de Notas de Despacho ---
+# --- Vistas para la gestión de Notas de Despacho ---
+@method_decorator(login_required, name='dispatch')
+class NotaDespachoInterfaceView(TemplateView):
+    """
+    Vista que renderiza el formulario de Nota de Despacho.
+    Actúa como la interfaz principal para crear/editar notas de despacho,
+    similar a un mini-POS.
+    """
+    template_name = 'inventario/nota_despacho_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        nota_despacho = None
+        if self.kwargs.get('pk'):
+            nota_despacho = get_object_or_404(NotaDespacho, pk=self.kwargs['pk'])
+        
+        context['form'] = NotaDespachoForm(instance=nota_despacho)
+        context['detalle_formset'] = DetalleNotaDespachoFormSet(instance=nota_despacho)
+        return context
+
+@login_required
+@csrf_exempt
+@transaction.atomic
+def create_nota_despacho_from_interface(request):
+    """
+    Vista API para procesar el formulario de Nota de Despacho enviado por la interfaz.
+    Valida el formulario principal y el formset, y si es válido, guarda los
+    objetos en la base de datos y actualiza el stock del producto de forma condicional.
+    """
+    if request.method == 'POST':
+        form_data = request.POST.copy()
+        pk = form_data.get('pk')
+        instance = get_object_or_404(NotaDespacho, pk=pk) if pk else None
+        
+        form = NotaDespachoForm(form_data, instance=instance)
+        formset = DetalleNotaDespachoFormSet(form_data, instance=instance)
+
+        if form.is_valid() and formset.is_valid():
+            nota_despacho = form.save()
+            
+            # Bandera para saber si la nota de despacho tiene una orden asociada
+            has_orden_salida = nota_despacho.orden_salida_referencia is not None
+            
+            for formset_form in formset:
+                if formset_form.is_valid() and formset_form.has_changed():
+                    detalle = formset_form.save(commit=False)
+                    detalle.nota_despacho = nota_despacho
+                    detalle.save()
+                    
+                    if not has_orden_salida:
+                        # Si no hay una orden de salida asociada, descontar del stock
+                        producto = detalle.producto
+                        cantidad = detalle.cantidad
+                        producto.cantidad -= cantidad
+                        producto.save()
+                        
+                        Movimiento.objects.create(
+                            producto=producto,
+                            tipo='salida',
+                            cantidad=cantidad,
+                            descripcion=f"Despacho de {cantidad} unidades de {producto.nombre} (Nota de Despacho #{nota_despacho.numero_despacho})",
+                            fecha=timezone.now(),
+                            nota_despacho=nota_despacho,
+                            almacen_origen=nota_despacho.almacen_origen
+                        )
+            
+            for detalle_borrado in formset.deleted_forms:
+                if not has_orden_salida:
+                    # Si no hay una orden de salida asociada, revertir el stock
+                    producto = detalle_borrado.instance.producto
+                    cantidad_borrada = detalle_borrado.instance.cantidad
+                    producto.cantidad += cantidad_borrada
+                    producto.save()
+                    
+                    Movimiento.objects.create(
+                        producto=producto,
+                        tipo='entrada',
+                        cantidad=cantidad_borrada,
+                        descripcion=f"Reversión de despacho por eliminación de línea en Nota Despacho #{nota_despacho.numero_despacho}",
+                        fecha=timezone.now(),
+                        nota_despacho=nota_despacho,
+                        almacen_origen=nota_despacho.almacen_origen
+                    )
+
+            return JsonResponse({'status': 'success', 'message': 'Nota de Despacho guardada exitosamente.', 'redirect_url': reverse_lazy('inventario:nota_despacho_list')})
+        else:
+            errors = form.errors.as_json()
+            errors_formset = formset.errors
+            print(f"Errores del formulario principal: {errors}")
+            print(f"Errores del formset: {errors_formset}")
+            return JsonResponse({'status': 'error', 'message': 'Hubo errores en el formulario.', 'errors': form.errors, 'formset_errors': formset.errors}, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
+
+def get_product_list_for_dispatch(request):
+    """
+    Vista API que devuelve la lista de productos disponibles en formato JSON.
+    Se puede filtrar por 'almacen_id' si se envía.
+    """
+    # Verificar si el usuario está autenticado, si no, devolver un JSON de error
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Autenticación requerida.'}, status=401)
+        
+    almacen_id = request.GET.get('almacen_id')
+    productos = Producto.objects.all()
+    if almacen_id:
+        # Aquí iría la lógica para filtrar por almacén si fuera necesaria
+        pass
+
+    productos_data = [
+        {
+            'id': p.id,
+            'nombre': p.nombre,
+            'codigo': p.codigo,
+            'cantidad': p.cantidad,
+            'unidad_medida_nombre': p.unidad_medida.nombre if p.unidad_medida else '',
+            'categoria_nombre': p.categoria.nombre if p.categoria else ''
+        }
+        for p in productos
+    ]
+    return JsonResponse({'productos': productos_data})
+
+@login_required
+def export_notas_despacho_excel(request):
+    """
+    Exporta todas las Notas de Despacho a un archivo de Excel.
+    """
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename=Notas_de_Despacho_{timezone.now().strftime("%Y-%m-%d")}.xlsx'
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Notas de Despacho'
+
+    # Estilo de celda para el encabezado
+    header_style = openpyxl.styles.NamedStyle(name="header_style")
+    header_style.font = Font(bold=True)
+    header_style.alignment = Alignment(horizontal='center', vertical='center')
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    header_style.border = thin_border
+
+    columns = [
+        'ID', 'Número de Despacho', 'Fecha de Despacho', 'Cliente', 'Almacén Origen',
+        'Observaciones', 'Total Productos'
+    ]
+    row_num = 1
+    
+    # Escribir el encabezado
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num, value=column_title)
+        cell.style = header_style
+
+    # Escribir datos
+    for nota in NotaDespacho.objects.all():
+        row_num += 1
+        
+        # Obtener el total de productos para esta nota de despacho
+        total_productos = nota.detalles.aggregate(total_cantidad=Sum('cantidad'))['total_cantidad'] or 0
+
+        row = [
+            nota.pk,
+            nota.numero_despacho,
+            nota.fecha_despacho.strftime("%d/%m/%Y"),
+            str(nota.cliente) if nota.cliente else 'N/A',
+            str(nota.almacen_origen) if nota.almacen_origen else 'N/A',
+            nota.observaciones,
+            total_productos
+        ]
+
+        for col_num, cell_value in enumerate(row, 1):
+            worksheet.cell(row=row_num, column=col_num, value=cell_value)
+
+    workbook.save(response)
+    return response
+@login_required
+def export_notas_despacho_excel(request):
+    """
+    Exporta todas las Notas de Despacho a un archivo de Excel.
+    """
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename=Notas_de_Despacho_{timezone.now().strftime("%Y-%m-%d")}.xlsx'
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Notas de Despacho'
+
+    # Estilo de celda para el encabezado
+    header_style = openpyxl.styles.NamedStyle(name="header_style")
+    header_style.font = Font(bold=True)
+    header_style.alignment = Alignment(horizontal='center', vertical='center')
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    header_style.border = thin_border
+
+    columns = [
+        'ID', 'Número de Despacho', 'Fecha de Despacho', 'Cliente', 'Almacén Origen',
+        'Observaciones', 'Total Productos'
+    ]
+    row_num = 1
+    
+    # Escribir el encabezado
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num, value=column_title)
+        cell.style = header_style
+
+    # Escribir datos
+    for nota in NotaDespacho.objects.all():
+        row_num += 1
+        
+        # Obtener el total de productos para esta nota de despacho
+        total_productos = nota.detalles.aggregate(total_cantidad=Sum('cantidad'))['total_cantidad'] or 0
+
+        row = [
+            nota.pk,
+            nota.numero_despacho,
+            nota.fecha_despacho.strftime("%d/%m/%Y"),
+            str(nota.cliente) if nota.cliente else 'N/A',
+            str(nota.almacen_origen) if nota.almacen_origen else 'N/A',
+            nota.observaciones,
+            total_productos
+        ]
+
+        for col_num, cell_value in enumerate(row, 1):
+            worksheet.cell(row=row_num, column=col_num, value=cell_value)
+
+    workbook.save(response)
+    return response
+
+# --- Vistas de Manejo de Errores Personalizadas ---
+def custom_404_view(request, exception):
+    """
+    Vista personalizada para errores 404 (Página no encontrada).
+    Renderiza la plantilla '404.html'.
+    """
+    return render(request, '404.html', status=404)
+
+def custom_500_view(request):
+    """
+    Vista personalizada para errores 500 (Error interno del servidor).
+    Renderiza la plantilla '500.html'.
+    """
+    return render(request, '500.html', status=500)
+
+class NotaDespachoCreateView(CreateView):
+    model = NotaDespacho
+    form_class = NotaDespachoForm
+    template_name = 'inventario/nota_despacho_form.html'
+    success_url = reverse_lazy('inventario:nota_despacho_list')
+
+    def get_context_data(self, **kwargs):
+        """
+        Sobrescribe get_context_data para añadir al contexto la lista de cotizaciones
+        con estado 'aceptada' o 'pendiente', así como las órdenes de salida pendientes.
+        """
+        context = super().get_context_data(**kwargs)
+        
+        # Cotizaciones aceptadas y pendientes
+        context['cotizaciones_validas'] = Cotizacion.objects.filter(
+            estado__in=['aceptada', 'pendiente']
+        ).order_by('-fecha_creacion')
+
+        # Órdenes de salida que no están asociadas a una NotaDespacho
+        # Esto asume que el modelo NotaDespacho tiene una relación con OrdenSalida
+        ordenes_asociadas = NotaDespacho.objects.all().values_list('orden_salida_referencia__id', flat=True)
+        context['ordenes_salida_pendientes'] = OrdenSalida.objects.filter(
+            ~Q(pk__in=ordenes_asociadas)
+        ).order_by('-fecha_creacion')
+
+        if self.request.POST:
+            context['detalle_formset'] = DetalleNotaDespachoFormSet(self.request.POST, self.request.FILES)
+        else:
+            context['detalle_formset'] = DetalleNotaDespachoFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        detalle_formset = context['detalle_formset']
+
+        with transaction.atomic():
+            if detalle_formset.is_valid():
+                self.object = form.save(commit=False)
+                self.object.responsable = self.request.user if self.request.user.is_authenticated else None
+                self.object.save()
+                
+                detalles = detalle_formset.save(commit=False)
+                for detalle in detalles:
+                    detalle.nota_despacho = self.object
+                    detalle.save()
+                
+                # ... Lógica para actualizar stock, etc. ...
+                return super().form_valid(form)
+            else:
+                return self.form_invalid(form)
+def get_product_list_json(request):
+    """
+    Vista que retorna una lista de productos en formato JSON.
+    Incluye solo la información necesaria para el frontend.
+    """
+    productos = Producto.objects.all().values('id', 'nombre', 'precio', 'cantidad', 'codigo')
+    data = list(productos)
+    return JsonResponse({'productos': data})
 
 class NotaDespachoListView(LoginRequiredMixin, ListView):
     model = NotaDespacho
@@ -1571,29 +1878,6 @@ class CotizacionDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'inventario/cotizacion_confirm_delete.html'
     success_url = reverse_lazy('inventario:cotizacion_list')
 
-def cotizacion_accept(request, pk):
-    if not request.user.is_authenticated:
-        return redirect('inventario:login') # Redirigir si no está autenticado
-    cotizacion = get_object_or_404(Cotizacion, pk=pk)
-    if request.method == 'POST':
-        if cotizacion.estado == 'abierta':
-            with transaction.atomic():
-                # Create OrdenSalida as a record of the accepted quote
-                orden_salida = OrdenSalida.objects.create(
-                    cliente=cotizacion.cliente,
-                    cotizacion_origen=cotizacion,
-                    total=cotizacion.total_cotizado
-                )
-                # Change cotizacion status to 'aceptada'
-                cotizacion.estado = 'aceptada'
-                cotizacion.save(update_fields=['estado'])
-
-                # Redirect to the NotaDespacho creation form, pre-filling with this order
-                return redirect('inventario:crear_nota_despacho_desde_orden', orden_salida_id=orden_salida.pk)
-        else:
-            return HttpResponse("La cotización no está en estado 'abierta' para ser aceptada.", status=400)
-    return HttpResponse("Método no permitido.", status=405)
-
 
 class CotizacionesInterfaceView(LoginRequiredMixin, TemplateView):
     template_name = 'inventario/cotizaciones_interface.html'
@@ -1603,7 +1887,90 @@ class CotizacionesInterfaceView(LoginRequiredMixin, TemplateView):
         context['productos'] = Producto.objects.filter(cantidad__gt=0).order_by('nombre')
         context['clientes'] = Cliente.objects.all().order_by('nombre') # Pasar clientes para el selector
         return context
+@csrf_exempt
+@transaction.atomic
+def cotizacion_accept(request, pk):
+    """
+    Vista que maneja la aceptación de una cotización.
+    - Cambia el estado de la cotización a 'aceptada'.
+    - Crea una Orden de Salida.
+    - Crea DetalleOrdenSalida para cada detalle de la cotización.
+    - Registra un Movimiento de tipo 'Salida' para cada producto.
+    - Disminuye la cantidad de cada producto en el inventario.
+    """
+    # Solo procesar peticiones POST
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
+    try:
+        cotizacion = get_object_or_404(Cotizacion, pk=pk)
+
+        # Si la cotización ya fue aceptada, no hacer nada
+        if cotizacion.estado == 'aceptada':
+            return JsonResponse({'status': 'warning', 'message': 'Esta cotización ya ha sido aceptada previamente.'}, status=200)
+        
+        # Obtener los tipos de movimiento
+        tipo_salida = TipoMovimiento.objects.get(nombre='Salida')
+        
+        # Obtener un almacén de origen por defecto (el primero que exista)
+        almacen_origen = Almacen.objects.first()
+        if not almacen_origen:
+            raise ValueError("No se encontró ningún almacén en la base de datos. Por favor, cree al menos uno.")
+
+        # Iniciar la transacción
+        with transaction.atomic():
+            # Crear la Orden de Salida a partir de la Cotización
+            # Se han eliminado los argumentos 'fecha_creacion', 'almacen_origen' y 'descripcion'
+            # para resolver el error de argumentos inesperados.
+            orden_salida = OrdenSalida.objects.create(
+                cotizacion_origen=cotizacion,
+                cliente=cotizacion.cliente,
+            )
+
+            # Iterar sobre los detalles de la cotización
+            for detalle_cotizacion in cotizacion.detalles.all():
+                producto = detalle_cotizacion.producto
+                cantidad_despachada = detalle_cotizacion.cantidad
+
+                # 1. Verificar si hay suficiente stock
+                if producto.cantidad < cantidad_despachada:
+                    raise ValueError(f"Stock insuficiente para el producto '{producto.nombre}'. Hay {producto.cantidad} en inventario, se necesitan {cantidad_despachada}.")
+
+                # 2. Crear el Detalle de la Orden de Salida
+                DetalleOrdenSalida.objects.create(
+                    orden_salida=orden_salida,
+                    producto=producto,
+                    cantidad=cantidad_despachada,
+                    precio_unitario_al_momento=detalle_cotizacion.precio_unitario,
+                    detalle_cotizacion_origen=detalle_cotizacion
+                )
+
+                # 3. Disminuir el stock del producto
+                producto.cantidad = F('cantidad') - cantidad_despachada
+                producto.save()
+                
+                # 4. Registrar el movimiento de salida
+                Movimiento.objects.create(
+                    producto=producto,
+                    tipo_movimiento=tipo_salida,
+                    cantidad=cantidad_despachada,
+                    fecha=timezone.now(),
+                    descripcion=f"Salida por aceptación de Cotización #{cotizacion.numero_cotizacion}",
+                    almacen_origen=almacen_origen,
+                    usuario=request.user if request.user.is_authenticated else None,
+                    orden_salida=orden_salida
+                )
+
+            # 5. Actualizar el estado de la cotización
+            cotizacion.estado = 'aceptada'
+            cotizacion.save(update_fields=['estado'])
+            
+        return JsonResponse({'status': 'success', 'message': f'Cotización #{cotizacion.numero_cotizacion} aceptada y Orden de Salida creada exitosamente.'})
+
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Ocurrió un error inesperado: {str(e)}'}, status=500)
 @csrf_exempt
 def create_cotizacion_from_interface(request):
     if not request.user.is_authenticated:
@@ -1906,3 +2273,117 @@ def custom_500_view(request):
     Renderiza la plantilla '500.html'.
     """
     return render(request, '500.html', status=500)
+@csrf_exempt
+def product_list_json(request):
+    """
+    Vista para devolver todos los productos en formato JSON.
+    Se utiliza en la interfaz de tipo POS para cargar la lista de productos.
+    """
+    productos = Producto.objects.all().order_by('nombre')
+    data = {
+        'productos': [
+            {
+                'pk': producto.pk,
+                'nombre': producto.nombre,
+                'sku': producto.sku,
+                'cantidad': producto.cantidad,
+                'precio': producto.precio,
+                'unidad_medida': producto.unidad_medida.simbolo if producto.unidad_medida else '',
+            }
+            for producto in productos
+        ]
+    }
+    return JsonResponse(data)
+@csrf_exempt
+def cotizacion_detail_json(request, pk):
+    """
+    Vista para devolver los detalles de una cotización específica en formato JSON.
+    Se utiliza para cargar los datos de una cotización en el formulario de Nota de Despacho.
+    """
+    try:
+        cotizacion = Cotizacion.objects.get(pk=pk)
+        detalles = cotizacion.detalles.all()
+        
+        data = {
+            'pk': cotizacion.pk,
+            'numero_cotizacion': cotizacion.numero_cotizacion,
+            'cliente': {
+                'pk': cotizacion.cliente.pk,
+                'nombre': cotizacion.cliente.nombre,
+            } if cotizacion.cliente else None,
+            'detalles': [
+                {
+                    'pk': detalle.pk,
+                    'producto_pk': detalle.producto.pk,
+                    'producto_nombre': detalle.producto.nombre,
+                    'cantidad': detalle.cantidad,
+                    'precio_unitario': str(detalle.precio_unitario),
+                    'subtotal': str(detalle.subtotal),
+                    'unidad_medida': detalle.producto.unidad_medida.simbolo if detalle.producto.unidad_medida else ''
+                }
+                for detalle in detalles
+            ],
+            'total_cotizado': str(cotizacion.total_cotizado)
+        }
+        return JsonResponse(data)
+    except Cotizacion.DoesNotExist:
+        return JsonResponse({'error': 'Cotización no encontrada.'}, status=404)
+@login_required
+def get_orden_salida_details(request, pk):
+    """
+    Vista API para obtener los detalles de una Orden de Salida específica.
+    """
+    try:
+        orden = OrdenSalida.objects.get(pk=pk)
+        detalles_data = []
+        for detalle in orden.detalles.all():
+            detalles_data.append({
+                'producto_id': detalle.producto.id,
+                'producto_nombre': detalle.producto.nombre,
+                'cantidad': detalle.cantidad,
+            })
+        
+        return JsonResponse({'status': 'success', 'detalles': detalles_data})
+    except OrdenSalida.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'La orden de salida no existe.'}, status=404)
+def api_get_products_for_dispatch(request):
+    """
+    API endpoint para obtener una lista de productos disponibles para despacho
+    en formato JSON.
+    """
+    productos = Producto.objects.all().select_related('unidad_medida')
+    data = []
+    for producto in productos:
+        data.append({
+            'id': producto.id,
+            'nombre': producto.nombre,
+            'codigo': producto.codigo,
+            'cantidad': producto.cantidad,
+            'unidad_medida_nombre': producto.unidad_medida.nombre if producto.unidad_medida else '',
+        })
+    return JsonResponse({'productos': data})
+
+def api_get_orden_salida_details(request, pk):
+    """
+    API endpoint para obtener los detalles de una Orden de Salida específica
+    y los productos asociados a ella en formato JSON.
+    """
+    try:
+        orden_salida = get_object_or_404(OrdenSalida, pk=pk)
+        detalles = orden_salida.detalles_orden.all().select_related('producto')
+        data = {
+            'id': orden_salida.id,
+            'numero_orden': orden_salida.numero_orden,
+            'cliente_nombre': orden_salida.cliente.nombre if orden_salida.cliente else '',
+            'detalles': [
+                {
+                    'producto_id': detalle.producto.id,
+                    'producto_nombre': detalle.producto.nombre,
+                    'cantidad': detalle.cantidad,
+                    'id': detalle.id,
+                } for detalle in detalles
+            ]
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
