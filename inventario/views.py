@@ -870,524 +870,184 @@ class GuiaSalidaDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'inventario/guia_salida_confirm_delete.html'
     success_url = reverse_lazy('inventario:guia_salida_list')
 
-# Define the formset for DetalleNotaDespacho
-DetalleNotaDespachoFormSet = inlineformset_factory(
-    NotaDespacho,
-    DetalleNotaDespacho,
-    fields=('producto', 'cantidad', 'detalle_cotizacion_origen', 'nombre_producto_despacho', 'marca', 'modelo'),
-    form=DetalleNotaDespachoForm,
-    extra=1,
-    can_delete=True
-)
+# ----------------- Vistas para la gestión de Notas de Despacho -----------------
 
-# --- Vistas para la gestión de Notas de Despacho ---
-# --- Vistas para la gestión de Notas de Despacho ---
 @method_decorator(login_required, name='dispatch')
-class NotaDespachoInterfaceView(TemplateView):
-    """
-    Vista que renderiza el formulario de Nota de Despacho.
-    Actúa como la interfaz principal para crear/editar notas de despacho,
-    similar a un mini-POS.
-    """
-    template_name = 'inventario/nota_despacho_form.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        nota_despacho = None
-        if self.kwargs.get('pk'):
-            nota_despacho = get_object_or_404(NotaDespacho, pk=self.kwargs['pk'])
-        
-        context['form'] = NotaDespachoForm(instance=nota_despacho)
-        context['detalle_formset'] = DetalleNotaDespachoFormSet(instance=nota_despacho)
-        return context
-
-@login_required
-@csrf_exempt
-@transaction.atomic
-def create_nota_despacho_from_interface(request):
-    """
-    Vista API para procesar el formulario de Nota de Despacho enviado por la interfaz.
-    Valida el formulario principal y el formset, y si es válido, guarda los
-    objetos en la base de datos y actualiza el stock del producto de forma condicional.
-    """
-    if request.method == 'POST':
-        form_data = request.POST.copy()
-        pk = form_data.get('pk')
-        instance = get_object_or_404(NotaDespacho, pk=pk) if pk else None
-        
-        form = NotaDespachoForm(form_data, instance=instance)
-        formset = DetalleNotaDespachoFormSet(form_data, instance=instance)
-
-        if form.is_valid() and formset.is_valid():
-            nota_despacho = form.save()
-            
-            # Bandera para saber si la nota de despacho tiene una orden asociada
-            has_orden_salida = nota_despacho.orden_salida_referencia is not None
-            
-            for formset_form in formset:
-                if formset_form.is_valid() and formset_form.has_changed():
-                    detalle = formset_form.save(commit=False)
-                    detalle.nota_despacho = nota_despacho
-                    detalle.save()
-                    
-                    if not has_orden_salida:
-                        # Si no hay una orden de salida asociada, descontar del stock
-                        producto = detalle.producto
-                        cantidad = detalle.cantidad
-                        producto.cantidad -= cantidad
-                        producto.save()
-                        
-                        Movimiento.objects.create(
-                            producto=producto,
-                            tipo='salida',
-                            cantidad=cantidad,
-                            descripcion=f"Despacho de {cantidad} unidades de {producto.nombre} (Nota de Despacho #{nota_despacho.numero_despacho})",
-                            fecha=timezone.now(),
-                            nota_despacho=nota_despacho,
-                            almacen_origen=nota_despacho.almacen_origen
-                        )
-            
-            for detalle_borrado in formset.deleted_forms:
-                if not has_orden_salida:
-                    # Si no hay una orden de salida asociada, revertir el stock
-                    producto = detalle_borrado.instance.producto
-                    cantidad_borrada = detalle_borrado.instance.cantidad
-                    producto.cantidad += cantidad_borrada
-                    producto.save()
-                    
-                    Movimiento.objects.create(
-                        producto=producto,
-                        tipo='entrada',
-                        cantidad=cantidad_borrada,
-                        descripcion=f"Reversión de despacho por eliminación de línea en Nota Despacho #{nota_despacho.numero_despacho}",
-                        fecha=timezone.now(),
-                        nota_despacho=nota_despacho,
-                        almacen_origen=nota_despacho.almacen_origen
-                    )
-
-            return JsonResponse({'status': 'success', 'message': 'Nota de Despacho guardada exitosamente.', 'redirect_url': reverse_lazy('inventario:nota_despacho_list')})
-        else:
-            errors = form.errors.as_json()
-            errors_formset = formset.errors
-            print(f"Errores del formulario principal: {errors}")
-            print(f"Errores del formset: {errors_formset}")
-            return JsonResponse({'status': 'error', 'message': 'Hubo errores en el formulario.', 'errors': form.errors, 'formset_errors': formset.errors}, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
-
-
-def get_product_list_for_dispatch(request):
-    """
-    Vista API que devuelve la lista de productos disponibles en formato JSON.
-    Se puede filtrar por 'almacen_id' si se envía.
-    """
-    # Verificar si el usuario está autenticado, si no, devolver un JSON de error
-    if not request.user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'Autenticación requerida.'}, status=401)
-        
-    almacen_id = request.GET.get('almacen_id')
-    productos = Producto.objects.all()
-    if almacen_id:
-        # Aquí iría la lógica para filtrar por almacén si fuera necesaria
-        pass
-
-    productos_data = [
-        {
-            'id': p.id,
-            'nombre': p.nombre,
-            'codigo': p.codigo,
-            'cantidad': p.cantidad,
-            'unidad_medida_nombre': p.unidad_medida.nombre if p.unidad_medida else '',
-            'categoria_nombre': p.categoria.nombre if p.categoria else ''
-        }
-        for p in productos
-    ]
-    return JsonResponse({'productos': productos_data})
-
-@login_required
-def export_notas_despacho_excel(request):
-    """
-    Exporta todas las Notas de Despacho a un archivo de Excel.
-    """
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename=Notas_de_Despacho_{timezone.now().strftime("%Y-%m-%d")}.xlsx'
-
-    workbook = openpyxl.Workbook()
-    worksheet = workbook.active
-    worksheet.title = 'Notas de Despacho'
-
-    # Estilo de celda para el encabezado
-    header_style = openpyxl.styles.NamedStyle(name="header_style")
-    header_style.font = Font(bold=True)
-    header_style.alignment = Alignment(horizontal='center', vertical='center')
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    header_style.border = thin_border
-
-    columns = [
-        'ID', 'Número de Despacho', 'Fecha de Despacho', 'Cliente', 'Almacén Origen',
-        'Observaciones', 'Total Productos'
-    ]
-    row_num = 1
-    
-    # Escribir el encabezado
-    for col_num, column_title in enumerate(columns, 1):
-        cell = worksheet.cell(row=row_num, column=col_num, value=column_title)
-        cell.style = header_style
-
-    # Escribir datos
-    for nota in NotaDespacho.objects.all():
-        row_num += 1
-        
-        # Obtener el total de productos para esta nota de despacho
-        total_productos = nota.detalles.aggregate(total_cantidad=Sum('cantidad'))['total_cantidad'] or 0
-
-        row = [
-            nota.pk,
-            nota.numero_despacho,
-            nota.fecha_despacho.strftime("%d/%m/%Y"),
-            str(nota.cliente) if nota.cliente else 'N/A',
-            str(nota.almacen_origen) if nota.almacen_origen else 'N/A',
-            nota.observaciones,
-            total_productos
-        ]
-
-        for col_num, cell_value in enumerate(row, 1):
-            worksheet.cell(row=row_num, column=col_num, value=cell_value)
-
-    workbook.save(response)
-    return response
-@login_required
-def export_notas_despacho_excel(request):
-    """
-    Exporta todas las Notas de Despacho a un archivo de Excel.
-    """
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename=Notas_de_Despacho_{timezone.now().strftime("%Y-%m-%d")}.xlsx'
-
-    workbook = openpyxl.Workbook()
-    worksheet = workbook.active
-    worksheet.title = 'Notas de Despacho'
-
-    # Estilo de celda para el encabezado
-    header_style = openpyxl.styles.NamedStyle(name="header_style")
-    header_style.font = Font(bold=True)
-    header_style.alignment = Alignment(horizontal='center', vertical='center')
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    header_style.border = thin_border
-
-    columns = [
-        'ID', 'Número de Despacho', 'Fecha de Despacho', 'Cliente', 'Almacén Origen',
-        'Observaciones', 'Total Productos'
-    ]
-    row_num = 1
-    
-    # Escribir el encabezado
-    for col_num, column_title in enumerate(columns, 1):
-        cell = worksheet.cell(row=row_num, column=col_num, value=column_title)
-        cell.style = header_style
-
-    # Escribir datos
-    for nota in NotaDespacho.objects.all():
-        row_num += 1
-        
-        # Obtener el total de productos para esta nota de despacho
-        total_productos = nota.detalles.aggregate(total_cantidad=Sum('cantidad'))['total_cantidad'] or 0
-
-        row = [
-            nota.pk,
-            nota.numero_despacho,
-            nota.fecha_despacho.strftime("%d/%m/%Y"),
-            str(nota.cliente) if nota.cliente else 'N/A',
-            str(nota.almacen_origen) if nota.almacen_origen else 'N/A',
-            nota.observaciones,
-            total_productos
-        ]
-
-        for col_num, cell_value in enumerate(row, 1):
-            worksheet.cell(row=row_num, column=col_num, value=cell_value)
-
-    workbook.save(response)
-    return response
-
-# --- Vistas de Manejo de Errores Personalizadas ---
-def custom_404_view(request, exception):
-    """
-    Vista personalizada para errores 404 (Página no encontrada).
-    Renderiza la plantilla '404.html'.
-    """
-    return render(request, '404.html', status=404)
-
-def custom_500_view(request):
-    """
-    Vista personalizada para errores 500 (Error interno del servidor).
-    Renderiza la plantilla '500.html'.
-    """
-    return render(request, '500.html', status=500)
-
 class NotaDespachoCreateView(CreateView):
+    """
+    Vista para crear una nueva Nota de Despacho.
+    Utiliza una vista genérica de Django para manejar los métodos GET y POST.
+    """
     model = NotaDespacho
     form_class = NotaDespachoForm
     template_name = 'inventario/nota_despacho_form.html'
-    success_url = reverse_lazy('inventario:nota_despacho_list')
 
     def get_context_data(self, **kwargs):
         """
-        Sobrescribe get_context_data para añadir al contexto la lista de cotizaciones
-        con estado 'aceptada' o 'pendiente', así como las órdenes de salida pendientes.
+        Añade el formset y otros datos necesarios al contexto de la plantilla.
         """
         context = super().get_context_data(**kwargs)
-        
-        # Cotizaciones aceptadas y pendientes
-        context['cotizaciones_validas'] = Cotizacion.objects.filter(
-            estado__in=['aceptada', 'pendiente']
-        ).order_by('-fecha_creacion')
-
-        # Órdenes de salida que no están asociadas a una NotaDespacho
-        # Esto asume que el modelo NotaDespacho tiene una relación con OrdenSalida
-        ordenes_asociadas = NotaDespacho.objects.all().values_list('orden_salida_referencia__id', flat=True)
-        context['ordenes_salida_pendientes'] = OrdenSalida.objects.filter(
-            ~Q(pk__in=ordenes_asociadas)
-        ).order_by('-fecha_creacion')
-
         if self.request.POST:
+            # Inicializa el formset con los datos del POST
             context['detalle_formset'] = DetalleNotaDespachoFormSet(self.request.POST, self.request.FILES)
         else:
+            # Inicializa un formset vacío para el método GET
             context['detalle_formset'] = DetalleNotaDespachoFormSet()
+            
+        # Pasa los productos y otros datos para la interfaz de selección
+        all_products_data = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
+        context['all_products_json'] = json.dumps(all_products_data)
+        context['cotizaciones'] = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
+        
         return context
 
     def form_valid(self, form):
+        """
+        Procesa el formulario principal y el formset.
+        """
         context = self.get_context_data()
         detalle_formset = context['detalle_formset']
-
+        
         with transaction.atomic():
+            # Asigna el usuario actual como responsable
+            form.instance.responsable = self.request.user if self.request.user.is_authenticated else None
+            # Guarda la instancia principal
+            self.object = form.save()
+            
+            detalle_formset.instance = self.object
+            
+            # Valida y guarda el formset
             if detalle_formset.is_valid():
-                self.object = form.save(commit=False)
-                self.object.responsable = self.request.user if self.request.user.is_authenticated else None
-                self.object.save()
-                
                 detalles = detalle_formset.save(commit=False)
                 for detalle in detalles:
                     detalle.nota_despacho = self.object
                     detalle.save()
-                
-                # ... Lógica para actualizar stock, etc. ...
-                return super().form_valid(form)
-            else:
-                return self.form_invalid(form)
-def get_product_list_json(request):
-    """
-    Vista que retorna una lista de productos en formato JSON.
-    Incluye solo la información necesaria para el frontend.
-    """
-    productos = Producto.objects.all().values('id', 'nombre', 'precio', 'cantidad', 'codigo')
-    data = list(productos)
-    return JsonResponse({'productos': data})
 
-class NotaDespachoListView(LoginRequiredMixin, ListView):
+                    # Actualiza el stock del producto
+                    if detalle.producto and not self.object.orden_salida_referencia:
+                         # Solo descuenta el stock si no hay una orden de salida asociada
+                        producto = detalle.producto
+                        producto.cantidad -= detalle.cantidad
+                        producto.save()
+
+                messages.success(self.request, "Nota de Despacho creada exitosamente.")
+                return redirect('inventario:nota_despacho_list')
+            else:
+                # Si el formset no es válido, no guardes nada y vuelve a renderizar
+                messages.error(self.request, "Hubo errores en el formulario. Por favor, revisa los detalles.")
+                return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        """
+        Maneja los errores del formulario principal.
+        """
+        messages.error(self.request, "Hubo errores en el formulario principal. Por favor, revisa los campos.")
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+@method_decorator(login_required, name='dispatch')
+class NotaDespachoUpdateView(UpdateView):
+    """
+    Vista para editar una Nota de Despacho existente.
+    """
+    model = NotaDespacho
+    form_class = NotaDespachoForm
+    template_name = 'inventario/nota_despacho_form.html'
+    
+    def get_context_data(self, **kwargs):
+        """
+        Añade el formset y otros datos necesarios para la edición.
+        """
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['detalle_formset'] = DetalleNotaDespachoFormSet(self.request.POST, self.request.FILES, instance=self.object)
+        else:
+            context['detalle_formset'] = DetalleNotaDespachoFormSet(instance=self.object)
+        
+        all_products_data = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
+        context['all_products_json'] = json.dumps(all_products_data)
+        context['cotizaciones'] = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
+        
+        return context
+
+    def form_valid(self, form):
+        """
+        Procesa el formulario y el formset para la edición.
+        """
+        context = self.get_context_data()
+        detalle_formset = context['detalle_formset']
+
+        with transaction.atomic():
+            # Obtiene el estado original de la nota y sus detalles
+            original_nota = NotaDespacho.objects.get(pk=self.object.pk)
+            original_detalles = {d.pk: d for d in original_nota.detalles.all()}
+
+            # Guarda la instancia principal
+            self.object = form.save()
+            
+            detalle_formset.instance = self.object
+            
+            if detalle_formset.is_valid():
+                # Guarda los detalles, manejando adiciones, cambios y eliminaciones
+                saved_detalles = detalle_formset.save(commit=False)
+                
+                # Actualiza el stock según los cambios
+                if not self.object.orden_salida_referencia:
+                    # Itera sobre los detalles guardados (nuevos o modificados)
+                    for detalle in saved_detalles:
+                        if detalle.pk:
+                            # Es una actualización de un detalle existente
+                            original_detalle = original_detalles.get(detalle.pk)
+                            if original_detalle:
+                                diff = detalle.cantidad - original_detalle.cantidad
+                                producto = detalle.producto
+                                producto.cantidad -= diff
+                                producto.save()
+                        else:
+                            # Es un detalle nuevo
+                            producto = detalle.producto
+                            producto.cantidad -= detalle.cantidad
+                            producto.save()
+                        
+                        detalle.nota_despacho = self.object
+                        detalle.save()
+
+                    # Maneja los detalles borrados
+                    for detalle_borrado in detalle_formset.deleted_forms:
+                        if detalle_borrado.instance.producto:
+                            producto = detalle_borrado.instance.producto
+                            producto.cantidad += detalle_borrado.instance.cantidad
+                            producto.save()
+                        detalle_borrado.instance.delete()
+
+                messages.success(self.request, "Nota de Despacho actualizada exitosamente.")
+                return redirect('inventario:nota_despacho_list')
+            else:
+                messages.error(self.request, "Hubo errores en el formulario. Por favor, revisa los detalles.")
+                return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Hubo errores en el formulario principal. Por favor, revisa los campos.")
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+@method_decorator(login_required, name='dispatch')
+class NotaDespachoListView(ListView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_list.html'
     context_object_name = 'notas_despacho'
     ordering = ['-fecha_despacho']
 
 
-class NotaDespachoDetailView(LoginRequiredMixin, DetailView):
+@method_decorator(login_required, name='dispatch')
+class NotaDespachoDetailView(DetailView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_detail.html'
     context_object_name = 'nota_despacho'
 
 
-def crear_o_editar_nota_despacho(request, pk=None, orden_salida_id=None):
-    nota_despacho = None
-    if pk:
-        nota_despacho = get_object_or_404(NotaDespacho, pk=pk)
-
-    # Lógica para precargar desde una orden de salida
-    orden_salida = None
-    initial_data = {}
-    if orden_salida_id:
-        orden_salida = get_object_or_404(OrdenSalida, pk=orden_salida_id)
-        initial_data = {
-            'cliente': orden_salida.cliente.pk,
-            'orden_asociada': orden_salida.pk,
-            # 'almacen_origen': orden_salida.almacen.pk, # Eliminado ya que NotaDespacho no tiene campo almacen_origen
-            'observaciones': f"Nota generada desde la Orden de Salida #{orden_salida.pk}",
-        }
-
-    if request.method == 'POST':
-        form = NotaDespachoForm(request.POST, instance=nota_despacho)
-        formset = DetalleNotaDespachoFormSet(request.POST, instance=nota_despacho, prefix='detalles')
-        
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
-                nota_guardada = form.save(commit=False)
-                if not pk:
-                    nota_guardada.creado_por = request.user
-                nota_guardada.save()
-                
-                old_details = {str(d.pk): d for d in DetalleNotaDespacho.objects.filter(nota_despacho=nota_guardada)} if nota_guardada.pk else {}
-                formset.instance = nota_guardada
-                saved_details = formset.save(commit=False)
-                new_details_map = {str(d.pk): d for d in saved_details if d.pk}
-
-                for form_data in formset.forms:
-                    producto_instance = form_data.cleaned_data.get('producto')
-                    product_id = producto_instance.pk if producto_instance else None
-                    cantidad_despachada = form_data.cleaned_data.get('cantidad', 0)
-                    detalle_cotizacion_origen = form_data.cleaned_data.get('detalle_cotizacion_origen')
-                    detail_pk = form_data.cleaned_data.get('id')
-                    
-                    if form_data.cleaned_data.get('DELETE'):
-                        if detail_pk and str(detail_pk) in old_details:
-                            old_detail = old_details[str(detail_pk)]
-                            if old_detail.producto:
-                                old_detail.producto.cantidad += old_detail.cantidad
-                                old_detail.producto.save()
-                            old_detail.delete()
-                    elif product_id and cantidad_despachada > 0:
-                        if detail_pk and str(detail_pk) in old_details:
-                            old_detail = old_details[str(detail_pk)]
-                            if old_detail.producto:
-                                diff = cantidad_despachada - old_detail.cantidad
-                                old_detail.producto.cantidad -= diff
-                                old_detail.producto.save()
-                            old_detail.nombre_producto_despacho = form_data.cleaned_data.get('nombre_producto_despacho')
-                            old_detail.marca = form_data.cleaned_data.get('marca')
-                            old_detail.modelo = form_data.cleaned_data.get('modelo')
-                            old_detail.cantidad = cantidad_despachada
-                            old_detail.detalle_cotizacion_origen = detalle_cotizacion_origen
-                            old_detail.save()
-                        else:
-                            new_detail = form_data.save(commit=False)
-                            new_detail.nota_despacho = nota_guardada
-                            new_detail.save()
-                            
-                            product = new_detail.producto
-                            if product:
-                                if product.cantidad < new_detail.cantidad:
-                                    form.add_error(None, f"Stock insuficiente para {product.nombre}. Disponible: {product.cantidad}")
-                                    transaction.set_rollback(True)
-                                    cotizaciones = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
-                                    all_products_data = list(Producto.objects.all().values('id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'))
-                                    all_products_json = json.dumps(all_products_data)
-                                    context = {
-                                        'form': form,
-                                        'detalle_formset': formset,
-                                        'all_products_json': all_products_json,
-                                        'cotizaciones': cotizaciones,
-                                        'nota_despacho': nota_despacho,
-                                        'orden_salida_id': orden_salida_id,
-                                    }
-                                    return render(request, 'inventario/nota_despacho_form.html', context)
-                                product.cantidad -= new_detail.cantidad
-                                product.save()
-            
-            return redirect('inventario:nota_despacho_list')
-        else:
-            pass
-
-    else:
-        if orden_salida_id:
-            form = NotaDespachoForm(initial=initial_data)
-            # Aquí precargamos los productos de la orden de salida
-            detalles_orden = DetalleOrdenSalida.objects.filter(orden_salida=orden_salida)
-            initial_detalles_formset = []
-            for detalle in detalles_orden:
-                initial_detalles_formset.append({
-                    'producto': detalle.producto.pk,
-                    'cantidad': detalle.cantidad,
-                    'nombre_producto_despacho': detalle.nombre_producto_salida,
-                    'marca': detalle.marca,
-                    'modelo': detalle.modelo,
-                })
-            formset = DetalleNotaDespachoFormSet(initial=initial_detalles_formset, prefix='detalles')
-        else:
-            form = NotaDespachoForm(instance=nota_despacho)
-            formset = DetalleNotaDespachoFormSet(instance=nota_despacho, prefix='detalles')
-
-    cotizaciones = Cotizacion.objects.filter(estado='aprobada').order_by('-fecha_creacion')
-
-    all_products_data = list(Producto.objects.all().values(
-        'id', 'nombre', 'sku', 'marca', 'modelo', 'cantidad', 'unidad_medida__abreviatura'
-    ))
-    all_products_json = json.dumps(all_products_data)
-
-    initial_detalles_data = []
-    if nota_despacho:
-        for detalle in nota_despacho.detalles.all():
-            initial_detalles_data.append({
-                'id': detalle.pk,
-                'producto': detalle.producto.pk if detalle.producto else None,
-                'nombre_producto_despacho': detalle.nombre_producto_despacho,
-                'marca': detalle.marca,
-                'modelo': detalle.modelo,
-                'cantidad': float(detalle.cantidad),
-                'detalle_cotizacion_origen': detalle.detalle_cotizacion_origen.pk if detalle.detalle_cotizacion_origen else None,
-            })
-    elif orden_salida_id: # Lógica para precargar desde orden_salida
-        detalles_orden = DetalleOrdenSalida.objects.filter(orden_salida=orden_salida)
-        for detalle in detalles_orden:
-            initial_detalles_data.append({
-                'id': None,
-                'producto': detalle.producto.pk if detalle.producto else None,
-                'nombre_producto_despacho': detalle.nombre_producto_salida,
-                'marca': detalle.marca,
-                'modelo': detalle.modelo,
-                'cantidad': float(detalle.cantidad),
-                'detalle_cotizacion_origen': None,
-            })
-    initial_detalles_json = json.dumps(initial_detalles_data)
-
-    context = {
-        'form': form,
-        'detalle_formset': formset,
-        'all_products_json': all_products_json,
-        'initial_dispatch_items_json': initial_detalles_json,
-        'cotizaciones': cotizaciones,
-        'nota_despacho': nota_despacho,
-        'orden_salida_id': orden_salida_id,
-    }
-    return render(request, 'inventario/nota_despacho_form.html', context)
-
-
-# --- NUEVA FUNCIÓN PARA CREAR NOTA DE DESPACHO DESDE UNA ORDEN ---
-def crear_nota_despacho_desde_orden(request, orden_salida_id):
-    return crear_o_editar_nota_despacho(request, orden_salida_id=orden_salida_id)
-
-
-def crear_nota_despacho(request):
-    return crear_o_editar_nota_despacho(request)
-
-
-def editar_nota_despacho(request, pk):
-    return crear_o_editar_nota_despacho(request, pk)
-
-def get_productos_from_cotizacion(request, pk):
-    try:
-        cotizacion = Cotizacion.objects.get(pk=pk)
-        detalles = cotizacion.detalles.filter(cotizacion=cotizacion).select_related('producto') # Corrected filter
-        
-        productos_json = []
-        for detalle in detalles:
-            productos_json.append({
-                'id': detalle.producto.pk,
-                'name': detalle.nombre_producto_cotizado or detalle.producto.nombre,
-                'brand': detalle.marca or detalle.producto.marca,
-                'model': detalle.modelo or detalle.producto.modelo,
-                'quantity': float(detalle.cantidad),
-                'detalleCotizacionOrigenPk': detalle.pk,
-            })
-        return JsonResponse({'success': True, 'productos': productos_json})
-    except Cotizacion.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Cotización no encontrada'}, status=404)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-class NotaDespachoDeleteView(LoginRequiredMixin, DeleteView):
+@method_decorator(login_required, name='dispatch')
+class NotaDespachoDeleteView(DeleteView):
     model = NotaDespacho
     template_name = 'inventario/nota_despacho_confirm_delete.html'
     success_url = reverse_lazy('inventario:nota_despacho_list')
@@ -1395,22 +1055,152 @@ class NotaDespachoDeleteView(LoginRequiredMixin, DeleteView):
     def form_valid(self, form):
         with transaction.atomic():
             nota = self.get_object()
-            for detalle in nota.detalles.all():
-                if detalle.producto:
-                    detalle.producto.cantidad += detalle.cantidad
-                    detalle.producto.save()
+            if not nota.orden_salida_referencia:
+                for detalle in nota.detalles.all():
+                    if detalle.producto:
+                        detalle.producto.cantidad += detalle.cantidad
+                        detalle.producto.save()
             return super().form_valid(form)
 
 
-def export_nota_despacho_pdf(request, pk):
-    if not request.user.is_authenticated:
-        return redirect('inventario:login')
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="nota_despacho_{pk}.pdf"'
+# ----------------- Vistas API -----------------
+
+@login_required
+def get_product_list_json(request):
+    """
+    Vista API que devuelve la lista de productos disponibles en formato JSON.
+    Se puede filtrar por 'almacen_id' si se envía.
+    """
+    almacen_id = request.GET.get('almacen_id')
+    productos = Producto.objects.all()
+    if almacen_id:
+        # Aquí iría la lógica para filtrar por almacén si fuera necesaria
+        pass
+    
+    productos_data = [
+        {
+            'id': p.id,
+            'nombre': p.nombre,
+            'codigo': p.codigo,
+            'cantidad': p.cantidad,
+            'unidad_medida_nombre': p.unidad_medida.abreviatura if p.unidad_medida else '',
+            'categoria_nombre': p.categoria.nombre if p.categoria else ''
+        }
+        for p in productos
+    ]
+    return JsonResponse({'productos': productos_data})
+
+@login_required
+def get_productos_from_cotizacion(request, pk):
+    """
+    Vista API que retorna los productos de una cotización específica.
+    """
+    try:
+        cotizacion = Cotizacion.objects.get(pk=pk)
+        detalles = cotizacion.detalles.all().select_related('producto')
+        
+        productos_json = []
+        for detalle in detalles:
+            productos_json.append({
+                'id': detalle.producto.pk if detalle.producto else None,
+                'name': detalle.nombre_producto_cotizado or (detalle.producto.nombre if detalle.producto else ''),
+                'brand': detalle.marca or (detalle.producto.marca if detalle.producto else ''),
+                'model': detalle.modelo or (detalle.producto.modelo if detalle.producto else ''),
+                'quantity': float(detalle.cantidad),
+                'detalleCotizacionOrigenPk': detalle.pk,
+                'unidad_medida': detalle.producto.unidad_medida.abreviatura if detalle.producto and detalle.producto.unidad_medida else ''
+            })
+        return JsonResponse({'success': True, 'productos': productos_json})
+    except Cotizacion.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Cotización no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+def get_productos_from_orden_salida(request, pk):
+    """
+    Vista API que retorna los productos de una orden de salida específica.
+    """
+    try:
+        orden_salida = OrdenSalida.objects.get(pk=pk)
+        detalles = orden_salida.detalles_orden.all().select_related('producto')
+        
+        productos_json = []
+        for detalle in detalles:
+            productos_json.append({
+                'id': detalle.producto.pk if detalle.producto else None,
+                'name': detalle.nombre_producto_salida or (detalle.producto.nombre if detalle.producto else ''),
+                'brand': detalle.marca or (detalle.producto.marca if detalle.producto else ''),
+                'model': detalle.modelo or (detalle.producto.modelo if detalle.producto else ''),
+                'quantity': float(detalle.cantidad),
+                'unidad_medida': detalle.producto.unidad_medida.abreviatura if detalle.producto and detalle.producto.unidad_medida else ''
+            })
+        return JsonResponse({'success': True, 'productos': productos_json})
+    except OrdenSalida.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Orden de Salida no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ----------------- Vistas de Exportación -----------------
+
+@login_required
+def export_notas_despacho_excel(request):
+    """
+    Exporta todas las Notas de Despacho a un archivo de Excel.
+    """
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename=Notas_de_Despacho_{timezone.now().strftime("%Y-%m-%d")}.xlsx'
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Notas de Despacho'
+
+    header_style = openpyxl.styles.NamedStyle(name="header_style")
+    header_style.font = Font(bold=True)
+    header_style.alignment = Alignment(horizontal='center', vertical='center')
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    header_style.border = thin_border
+
+    columns = [
+        'ID', 'Número de Despacho', 'Fecha de Despacho', 'Cliente', 'Almacén Origen',
+        'Observaciones', 'Total Productos'
+    ]
+    row_num = 1
+    
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num, value=column_title)
+        cell.style = header_style
+
+    for nota in NotaDespacho.objects.all():
+        row_num += 1
+        total_productos = nota.detalles.aggregate(total_cantidad=Sum('cantidad'))['total_cantidad'] or 0
+        row = [
+            nota.pk,
+            nota.numero_despacho,
+            nota.fecha_despacho.strftime("%d/%m/%Y"),
+            str(nota.cliente) if nota.cliente else 'N/A',
+            str(nota.almacen_origen) if nota.almacen_origen else 'N/A',
+            nota.observaciones,
+            total_productos
+        ]
+
+        for col_num, cell_value in enumerate(row, 1):
+            worksheet.cell(row=row_num, column=col_num, value=cell_value)
+
+    workbook.save(response)
     return response
 
 
 def generate_nota_despacho_pdf(request, pk):
+    """
+    Genera un PDF de la Nota de Despacho.
+    """
+    if not request.user.is_authenticated:
+        return redirect('inventario:login')
+
     nota_despacho = get_object_or_404(NotaDespacho.objects.select_related('proveedor'), pk=pk)
     detalles = nota_despacho.detalles.all()
     
@@ -1444,34 +1234,81 @@ def generate_nota_despacho_pdf(request, pk):
     HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf(response)
     return response
 
-    # Renderiza la plantilla HTML a una cadena
-    template = get_template('inventario/nota_despacho_pdf.html')
-    html_string = template.render(context)
-    # 🔍 LÍNEAS DE DEPURACIÓN
-    print("Nota de Despacho:", nota_despacho)
-    print("Cantidad de Detalles:", detalles.count())
-    print("Primeros 500 caracteres del HTML generado:\n", html_string[:500])
+# ----------------- Vistas para Manejo de Errores Personalizadas -----------------
 
-    # Crea la respuesta HTTP con tipo de contenido PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="nota_despacho_{nota_despacho.numero_despacho or nota_despacho.pk}.pdf"'
+def custom_404_view(request, exception):
+    """
+    Vista personalizada para errores 404 (Página no encontrada).
+    Renderiza la plantilla '404.html'.
+    """
+    return render(request, '404.html', status=404)
 
-    # Convierte el HTML a PDF usando WeasyPrint
-    HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf(response)
-    return response
+def custom_500_view(request):
+    """
+    Vista personalizada para errores 500 (Error interno del servidor).
+    Renderiza la plantilla '500.html'.
+    """
+    return render(request, '500.html', status=500)
 
 
 # --- Vistas para la Interfaz de Cotizaciones (anteriormente Mini POS) ---
 
-class CotizacionesInterfaceView(LoginRequiredMixin, TemplateView):
-    template_name = 'inventario/cotizaciones_interface.html' # Nuevo nombre de plantilla
+class NotaDespachoInterfaceView(TemplateView):
+    """
+    Una vista basada en TemplateView para manejar la creación y edición de
+    Notas de Despacho y sus detalles asociados (usando un formset).
+    """
+    template_name = 'inventario/nota_despacho_form.html'
 
     def get_context_data(self, **kwargs):
+        """
+        Prepara el contexto para la plantilla, incluyendo el formulario principal
+        y el formset de detalles.
+        """
         context = super().get_context_data(**kwargs)
-        # Obtener todos los productos disponibles para la cotización
-        context['productos'] = Producto.objects.filter(cantidad__gt=0).order_by('nombre')
-        context['clientes'] = Cliente.objects.all().order_by('nombre') # Pasar clientes para el selector
+        if self.request.POST:
+            # Si es un POST request, instanciamos el formulario y el formset
+            # con los datos enviados para su validación.
+            context['form'] = NotaDespachoForm(self.request.POST)
+            context['detalle_formset'] = DetalleNotaDespachoFormSet(self.request.POST, self.request.FILES)
+        else:
+            # Si es un GET request, instanciamos los formularios vacíos para
+            # la creación de una nueva nota. Si hay un pk en la URL (edición),
+            # cargamos la instancia existente.
+            if 'pk' in self.kwargs:
+                nota_despacho = get_object_or_404(NotaDespacho, pk=self.kwargs['pk'])
+                context['form'] = NotaDespachoForm(instance=nota_despacho)
+                context['detalle_formset'] = DetalleNotaDespachoFormSet(instance=nota_despacho)
+            else:
+                context['form'] = NotaDespachoForm()
+                context['detalle_formset'] = DetalleNotaDespachoFormSet()
         return context
+
+    def post(self, request, *args, **kwargs):
+        """
+        Maneja la lógica de validación y guardado del formulario principal
+        y del formset.
+        """
+        form = NotaDespachoForm(request.POST)
+        detalle_formset = DetalleNotaDespachoFormSet(request.POST, request.FILES)
+
+        if 'pk' in self.kwargs:
+            nota_despacho = get_object_or_404(NotaDespacho, pk=self.kwargs['pk'])
+            form = NotaDespachoForm(request.POST, instance=nota_despacho)
+            detalle_formset = DetalleNotaDespachoFormSet(request.POST, request.FILES, instance=nota_despacho)
+
+        # Usamos transaction.atomic() para garantizar que todas las operaciones
+        # de la base de datos se ejecuten con éxito o se reviertan si algo falla.
+        with transaction.atomic():
+            if form.is_valid() and detalle_formset.is_valid():
+                nota_despacho = form.save()
+                detalle_formset.instance = nota_despacho
+                detalle_formset.save()
+                return redirect('nota_despacho_list') # Redirige a la lista de notas de despacho
+
+        # Si el formulario o el formset no son válidos, volvemos a renderizar la plantilla
+        # con los errores para que el usuario pueda corregirlos.
+        return self.render_to_response(self.get_context_data(form=form, detalle_formset=detalle_formset))
 
 @csrf_exempt # ¡Advertencia! Esto es solo para desarrollo. En producción, usa CSRF tokens.
 def create_cotizacion_from_interface(request):
@@ -2348,20 +2185,70 @@ def get_orden_salida_details(request, pk):
         return JsonResponse({'status': 'error', 'message': 'La orden de salida no existe.'}, status=404)
 def api_get_products_for_dispatch(request):
     """
-    API endpoint para obtener una lista de productos disponibles para despacho
-    en formato JSON.
+    API para obtener la lista de productos disponibles para despacho en formato JSON.
+    Incluye información de stock, código y unidad de medida.
     """
-    productos = Producto.objects.all().select_related('unidad_medida')
-    data = []
-    for producto in productos:
-        data.append({
-            'id': producto.id,
-            'nombre': producto.nombre,
-            'codigo': producto.codigo,
-            'cantidad': producto.cantidad,
-            'unidad_medida_nombre': producto.unidad_medida.nombre if producto.unidad_medida else '',
-        })
-    return JsonResponse({'productos': data})
+    if request.method == 'GET':
+        try:
+            productos = Producto.objects.filter(is_active=True).select_related('unidad_medida').order_by('nombre')
+            data = [
+                {
+                    'id': p.id,
+                    'nombre': p.nombre,
+                    'codigo': p.codigo,
+                    'cantidad': float(p.cantidad),
+                    'precio': float(p.precio),
+                    'unidad_medida_nombre': p.unidad_medida.abreviatura if p.unidad_medida else '',
+                }
+                for p in productos
+            ]
+            return JsonResponse({'productos': data})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def api_add_detalle_form(request):
+    """
+    API para renderizar y devolver el HTML de un nuevo formulario de detalle de Nota de Despacho
+    dinámicamente, utilizando un producto y el número de formulario.
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            product_id = data.get('product_id')
+            form_id = data.get('form_id')
+            
+            # Crear una instancia del producto
+            producto = get_object_or_404(Producto, pk=product_id)
+
+            # Crear el formulario de detalle
+            form = DetalleNotaDespachoFormSet().empty_form
+            form.initial = {
+                'producto': producto.pk,
+                'cantidad': 1,
+            }
+            form.prefix = f'detalle-{form_id}'
+            
+            # Renderizar el formulario a una cadena HTML
+            context = {
+                'form': form,
+            }
+            html = render_to_string('inventario/includes/detalle_nota_despacho_form.html', context)
+            
+            return JsonResponse({'status': 'success', 'html': html})
+        
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'JSON no válido.'}, status=400)
+        except Http404:
+            return JsonResponse({'status': 'error', 'message': 'Producto no encontrado.'}, status=404)
+        except Exception as e:
+            print(f"Error en api_add_detalle_form: {e}")
+            return JsonResponse({'status': 'error', 'message': f'Ocurrió un error inesperado: {e}'}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 def api_get_orden_salida_details(request, pk):
     """

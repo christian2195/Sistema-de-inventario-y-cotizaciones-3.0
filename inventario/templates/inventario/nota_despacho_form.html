@@ -24,351 +24,247 @@
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                     <strong class="font-bold">¡Error!</strong>
                     <span class="block sm:inline">Por favor, corrija los siguientes errores:</span>
-                    <ul class="mt-2 list-disc list-inside">
-                        {% if form.non_field_errors %}
-                            {% for error in form.non_field_errors %}
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
                                 <li>{{ error }}</li>
                             {% endfor %}
-                        {% endif %}
-                        {% for field, errors in form.errors.items %}
-                            {% if field != '__all__' %}
-                                <li><strong>{{ field|verbose_name }}:</strong> {{ errors|join:", " }}</li>
-                            {% endif %}
                         {% endfor %}
                     </ul>
                 </div>
             {% endif %}
 
-            {# Campos principales del formulario #}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="{{ form.numero_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Número de Despacho</label>
+                    <label for="{{ form.numero_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Número de Despacho:</label>
                     {{ form.numero_despacho }}
                 </div>
                 <div>
-                    <label for="{{ form.fecha_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Fecha de Despacho</label>
+                    <label for="{{ form.fecha_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Fecha de Despacho:</label>
                     {{ form.fecha_despacho }}
                 </div>
                 <div>
-                    <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium text-gray-700">Cliente</label>
+                    <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium text-gray-700">Cliente:</label>
                     {{ form.cliente }}
                 </div>
                 <div>
-                    <label for="{{ form.almacen_origen.id_for_label }}" class="block text-sm font-medium text-gray-700">Almacén de Origen</label>
+                    <label for="{{ form.almacen_origen.id_for_label }}" class="block text-sm font-medium text-gray-700">Almacén de Origen:</label>
                     {{ form.almacen_origen }}
                 </div>
                 <div>
-                    <label for="{{ form.orden_salida_referencia.id_for_label }}" class="block text-sm font-medium text-gray-700">Orden de Salida Asociada</label>
+                    <label for="{{ form.tipo_despacho.id_for_label }}" class="block text-sm font-medium text-gray-700">Tipo de Despacho:</label>
+                    {{ form.tipo_despacho }}
+                </div>
+                <div>
+                    <label for="{{ form.proveedor.id_for_label }}" class="block text-sm font-medium text-gray-700">Proveedor (opcional):</label>
+                    {{ form.proveedor }}
+                </div>
+                <div>
+                    <label for="{{ form.orden_asociada.id_for_label }}" class="block text-sm font-medium text-gray-700">Orden Asociada (opcional):</label>
+                    {{ form.orden_asociada }}
+                </div>
+                <div>
+                    <label for="{{ form.orden_salida_referencia.id_for_label }}" class="block text-sm font-medium text-gray-700">Orden de Salida de Referencia (opcional):</label>
                     {{ form.orden_salida_referencia }}
                 </div>
             </div>
-
-            <div class="mb-4">
-                <label for="{{ form.observaciones.id_for_label }}" class="block text-sm font-medium text-gray-700">Observaciones</label>
-                {{ form.observaciones }}
-            </div>
-
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Detalles del Despacho</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {# Columna de selección de productos (tipo POS) #}
-                <div class="bg-gray-100 p-4 rounded-lg shadow-inner">
-                    <h3 class="text-xl font-bold mb-2 text-gray-700">Productos Disponibles</h3>
-                    <div class="mb-4">
-                        <input type="text" id="product-search" placeholder="Buscar producto..." class="w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50">
-                    </div>
-                    <div id="product-list" class="space-y-2 max-h-96 overflow-y-auto">
-                        {# Las tarjetas de productos se renderizarán aquí por JS #}
+            
+            <div class="mt-8 pt-4 border-t border-gray-200">
+                <h2 class="text-2xl font-bold mb-4 text-green-800">Detalles de Despacho</h2>
+                
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="flex-1 relative">
+                        <label for="search-product" class="block text-sm font-medium text-gray-700 sr-only">Buscar Producto</label>
+                        <input type="text" id="search-product" placeholder="Buscar producto..." class="block w-full p-2 rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        <ul id="product-search-results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto mt-1 hidden"></ul>
                     </div>
                 </div>
 
-                {# Columna de productos a despachar #}
-                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                    <h3 class="text-xl font-bold mb-2 text-green-700">Productos a Despachar</h3>
-                    <div id="despached-items" class="space-y-2">
-                        {# Los detalles del formset se renderizarán aquí #}
+                <div id="despached-items-container" class="mb-6">
+                    <h3 class="text-xl font-medium mb-2 text-green-700">Productos seleccionados:</h3>
+                    <div id="despached-items" class="space-y-4">
+                        {# Los formularios de detalle se insertarán aquí por JavaScript #}
+                        {% for detalle_form in detalle_formset %}
+                            {% include 'inventario/includes/detalle_nota_despacho_form.html' with form=detalle_form %}
+                        {% endfor %}
                     </div>
-                    <div id="empty-despachados-message" class="text-center text-gray-500 mt-4 hidden">
-                        Aún no se han añadido productos.
-                    </div>
+                    <p class="text-center text-gray-500 mt-4" id="empty-message" style="{% if detalle_formset %}display: none;{% endif %}">No hay productos seleccionados.</p>
                 </div>
+
             </div>
 
-            {# Botones de acción #}
-            <div class="flex justify-end space-x-4 mt-8">
-                <a href="{% url 'inventario:nota_despacho_list' %}" class="bg-gray-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600 transition duration-300">
-                    Cancelar
-                </a>
-                <button type="submit" id="save-button" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300">
+            <div class="flex justify-end mt-8 border-t pt-4">
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:-translate-y-1">
                     Guardar Nota de Despacho
                 </button>
             </div>
         </form>
     </div>
 
-    {# Área para mensajes de confirmación/error #}
-    <div id="message-area" class="fixed top-0 left-1/2 -translate-x-1/2 w-11/12 max-w-md mt-4 z-50"></div>
-
-    <style>
-        .product-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            background-color: #f9fafb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .product-card:hover {
-            background-color: #f3f4f6;
-        }
-        .add-qty-input, .update-qty-input {
-            -moz-appearance: textfield;
-        }
-        .add-qty-input::-webkit-outer-spin-button,
-        .add-qty-input::-webkit-inner-spin-button,
-        .update-qty-input::-webkit-outer-spin-button,
-        .update-qty-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        .message-box {
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 0.375rem;
-            border-width: 1px;
-            font-weight: 700;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .message-box.success {
-            background-color: #d1fae5;
-            border-color: #34d399;
-            color: #065f46;
-        }
-        .message-box.error {
-            background-color: #fee2e2;
-            border-color: #fca5a5;
-            color: #991b1b;
-        }
-    </style>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            let availableProducts = [];
-            let despachedItems = {}; // Usamos un objeto para un acceso más rápido por ID
-            let initialFormsCount = 0;
-            let currentOrderId = null;
+            const form = document.getElementById('nota-despacho-form');
+            const despachedItemsContainer = document.getElementById('despached-items');
+            const managementForm = document.getElementById('id_detalle_despacho-TOTAL_FORMS');
+            const searchInput = document.getElementById('search-product');
+            const searchResultsList = document.getElementById('product-search-results');
+            const emptyMessage = document.getElementById('empty-message');
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
-            // URL para la lista de productos
-            const getProductListUrl = "{% url 'inventario:api_get_products_for_dispatch' %}";
-            const getOrderDetailsUrl = "{% url 'inventario:api_get_orden_salida_details' 0 %}".replace('/0', '');
+            let availableProducts = [];
+            let currentSelectedProducts = {};
+            let formCount = parseInt(managementForm.value);
+            let initialFormsCount = 0;
 
             function showMessage(message, type) {
-                const messageArea = document.getElementById('message-area');
-                const messageBox = document.createElement('div');
-                messageBox.className = `message-box ${type}`;
-                messageBox.textContent = message;
-                messageArea.innerHTML = '';
-                messageArea.appendChild(messageBox);
-                setTimeout(() => {
-                    messageBox.remove();
-                }, 5000);
+                const alertContainer = document.createElement('div');
+                alertContainer.className = `alert mt-4 p-4 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+                alertContainer.innerHTML = `<p>${message}</p>`;
+                form.prepend(alertContainer);
+                setTimeout(() => alertContainer.remove(), 5000);
             }
 
-            function getProductById(productId) {
-                return availableProducts.find(p => p.id == productId);
+            function updateManagementForm() {
+                managementForm.value = formCount;
             }
 
-            function renderProductList(query = '') {
-                const productListDiv = document.getElementById('product-list');
-                productListDiv.innerHTML = '';
-                const filteredProducts = availableProducts.filter(p => 
-                    (p.nombre.toLowerCase().includes(query.toLowerCase()) || 
-                     p.codigo.toLowerCase().includes(query.toLowerCase())) &&
-                    !despachedItems.hasOwnProperty(p.id) // No mostrar productos ya añadidos
-                );
-
-                if (filteredProducts.length === 0) {
-                    productListDiv.innerHTML = '<p class="text-center text-gray-500">No se encontraron productos.</p>';
-                    return;
-                }
-
-                filteredProducts.forEach(product => {
-                    const card = document.createElement('div');
-                    card.className = 'product-card';
-                    card.dataset.productId = product.id;
-                    card.innerHTML = `
-                        <div>
-                            <p class="font-semibold">${product.nombre} (${product.codigo})</p>
-                            <p class="text-sm text-gray-600">Stock: ${product.cantidad} ${product.unidad_medida_nombre}</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <input type="number" class="add-qty-input w-20 p-1 text-center border rounded-md" value="1" min="1" max="${product.cantidad}">
-                            <button type="button" class="add-product-btn bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition duration-300">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    `;
-                    productListDiv.appendChild(card);
+            function renderProductList() {
+                searchResultsList.innerHTML = '';
+                availableProducts.forEach(product => {
+                    const li = document.createElement('li');
+                    li.className = 'p-2 hover:bg-gray-200 cursor-pointer rounded-md';
+                    li.textContent = `${product.nombre} (Stock: ${product.cantidad})`;
+                    li.dataset.productId = product.id;
+                    li.dataset.productName = product.nombre;
+                    li.dataset.productUnit = product.unidad_medida_abreviatura;
+                    li.addEventListener('click', () => {
+                        addProductToDespached(product.id, 1);
+                        searchInput.value = '';
+                        searchResultsList.innerHTML = '';
+                        searchResultsList.classList.add('hidden');
+                    });
+                    searchResultsList.appendChild(li);
                 });
             }
 
-            function renderDespachedItems() {
-                const container = document.getElementById('despached-items');
-                container.innerHTML = '';
-                const emptyMessage = document.getElementById('empty-despachados-message');
-
-                if (Object.keys(despachedItems).length === 0) {
-                    emptyMessage.classList.remove('hidden');
+            function updateEmptyMessage() {
+                if (despachedItemsContainer.children.length === 0) {
+                    emptyMessage.style.display = 'block';
                 } else {
-                    emptyMessage.classList.add('hidden');
-                    let formIdx = initialFormsCount;
-                    for (const productId in despachedItems) {
-                        const item = despachedItems[productId];
-                        const product = getProductById(productId);
-                        if (!product) continue;
+                    emptyMessage.style.display = 'none';
+                }
+            }
 
-                        const formCard = document.createElement('div');
-                        formCard.className = 'product-card';
-                        formCard.dataset.productId = product.id;
-                        formCard.innerHTML = `
-                            <div>
-                                <p class="font-semibold">${product.nombre} (${product.codigo})</p>
-                                <p class="text-sm text-gray-600">Stock: ${product.cantidad} ${product.unidad_medida_nombre}</p>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <input type="number" name="detalles-${formIdx}-cantidad" class="update-qty-input w-20 p-1 text-center border rounded-md" value="${item.cantidad}" min="1" max="${product.cantidad}" ${currentOrderId ? 'readonly' : ''}>
-                                <button type="button" class="remove-product-btn bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-300">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="hidden" name="detalles-${formIdx}-producto" value="${product.id}">
-                            <input type="hidden" name="detalles-${formIdx}-id" value="${item.id || ''}">
-                            <input type="hidden" name="detalles-${formIdx}-DELETE" value="off">
-                        `;
-                        container.appendChild(formCard);
-                        formIdx++;
+            async function addProductToDespached(productId, quantity, detalleId = '') {
+                if (currentSelectedProducts[productId]) {
+                    showMessage('Este producto ya ha sido agregado al despacho.', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('{% url "inventario:api_add_detalle_form" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            'product_id': productId,
+                            'form_index': formCount,
+                            'initial_quantity': quantity,
+                            'detalle_id': detalleId,
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
                     }
-                    // Actualizar el total de formularios
-                    document.getElementById('id_detalles-TOTAL_FORMS').value = formIdx;
-                }
-                attachUpdateQtyEvents();
-                attachRemoveEvents();
-            }
+                    const html = await response.text();
 
-            function addProductToDespached(productId, quantity, id = null) {
-                if (despachedItems.hasOwnProperty(productId)) {
-                    showMessage('Este producto ya ha sido añadido.', 'error');
-                    return;
-                }
-                const product = getProductById(productId);
-                if (!product) return;
-
-                despachedItems[productId] = {
-                    producto_id: productId,
-                    cantidad: quantity,
-                    id: id
-                };
-                renderDespachedItems();
-                renderProductList(document.getElementById('product-search').value);
-            }
-
-            function attachUpdateQtyEvents() {
-                document.querySelectorAll('.update-qty-input').forEach(input => {
-                    input.addEventListener('change', function() {
-                        const card = this.closest('[data-product-id]');
-                        const productId = card.dataset.productId;
-                        despachedItems[productId].cantidad = parseInt(this.value, 10);
-                        renderDespachedItems(); // Forzar re-render para actualizar el total de formularios
+                    const formWrapper = document.createElement('div');
+                    formWrapper.innerHTML = html;
+                    const newForm = formWrapper.firstElementChild;
+                    
+                    despachedItemsContainer.appendChild(newForm);
+                    
+                    const removeButton = newForm.querySelector('.remove-item');
+                    removeButton.addEventListener('click', () => {
+                        removeForm(newForm, productId);
                     });
-                });
-            }
-            
-            function attachRemoveEvents() {
-                document.querySelectorAll('.remove-product-btn').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const card = this.closest('[data-product-id]');
-                        const productId = card.dataset.productId;
-                        delete despachedItems[productId];
-                        renderDespachedItems();
-                        renderProductList(document.getElementById('product-search').value);
-                    });
-                });
+                    
+                    currentSelectedProducts[productId] = { form: newForm, initial: false };
+                    formCount++;
+                    updateManagementForm();
+                    updateEmptyMessage();
+
+                } catch (error) {
+                    console.error('Error al añadir el detalle:', error);
+                    showMessage('Ocurrió un error al añadir el producto. Inténtalo de nuevo.', 'error');
+                }
             }
 
-            // Manejador del evento para agregar producto
-            document.getElementById('product-list').addEventListener('click', function(e) {
-                const addBtn = e.target.closest('.add-product-btn');
-                if (addBtn) {
-                    const card = addBtn.closest('[data-product-id]');
-                    const productId = card.dataset.productId;
-                    const qtyInput = card.querySelector('.add-qty-input');
-                    const quantity = parseInt(qtyInput.value, 10);
-                    addProductToDespached(productId, quantity);
-                }
-            });
+            function removeForm(formElement, productId) {
+                const formIdInput = formElement.querySelector('[name$="-id"]');
+                const formDeleteInput = formElement.querySelector('[name$="-DELETE"]');
 
-            // Manejador del evento de búsqueda
-            document.getElementById('product-search').addEventListener('input', function(e) {
-                if (!currentOrderId) {
-                    renderProductList(e.target.value);
-                }
-            });
-            
-            // Manejador de evento para la selección de Orden de Salida
-            const ordenSalidaSelect = document.getElementById('id_orden_salida_referencia');
-            ordenSalidaSelect.addEventListener('change', function() {
-                const ordenId = this.value;
-                if (ordenId) {
-                    currentOrderId = ordenId;
-                    loadOrderDetails(ordenId);
-                    // Ocultar el panel de búsqueda de productos
-                    document.getElementById('product-search').closest('div').style.display = 'none';
-                    document.getElementById('product-list').closest('div').style.display = 'none';
+                if (formIdInput && formIdInput.value) {
+                    // Si el formulario ya existía en la base de datos, lo marcamos para eliminación
+                    if (formDeleteInput) {
+                        formDeleteInput.checked = true;
+                    }
+                    formElement.style.display = 'none';
                 } else {
-                    currentOrderId = null;
-                    despachedItems = {}; // Limpiar la lista de despachados
-                    loadInitialData(); // Volver a cargar todos los productos
-                    // Mostrar el panel de búsqueda de productos
-                    document.getElementById('product-search').closest('div').style.display = 'block';
-                    document.getElementById('product-list').closest('div').style.display = 'block';
+                    // Si es un formulario nuevo, simplemente lo removemos del DOM
+                    formElement.remove();
+                    formCount--;
+                    updateManagementForm();
                 }
-                renderDespachedItems();
+                delete currentSelectedProducts[productId];
+                updateEmptyMessage();
+            }
+
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.toLowerCase();
+                const filteredProducts = availableProducts.filter(product => product.nombre.toLowerCase().includes(query));
+                searchResultsList.innerHTML = '';
+                
+                if (query.length > 0 && filteredProducts.length > 0) {
+                    filteredProducts.forEach(product => {
+                        const li = document.createElement('li');
+                        li.className = 'p-2 hover:bg-gray-200 cursor-pointer rounded-md';
+                        li.textContent = `${product.nombre} (Stock: ${product.cantidad})`;
+                        li.dataset.productId = product.id;
+                        li.dataset.productName = product.nombre;
+                        li.dataset.productUnit = product.unidad_medida_abreviatura;
+                        li.addEventListener('click', () => {
+                            addProductToDespached(product.id, 1);
+                            searchInput.value = '';
+                            searchResultsList.innerHTML = '';
+                            searchResultsList.classList.add('hidden');
+                        });
+                        searchResultsList.appendChild(li);
+                    });
+                    searchResultsList.classList.remove('hidden');
+                } else {
+                    searchResultsList.classList.add('hidden');
+                }
             });
 
-            function loadOrderDetails(orderId) {
-                const url = `${getOrderDetailsUrl}/${orderId}/`;
-                fetch(url)
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !searchResultsList.contains(e.target)) {
+                    searchResultsList.classList.add('hidden');
+                }
+            });
+
+
+            function loadInitialData() {
+                fetch('{% url "inventario:api_get_products_for_dispatch" %}')
                     .then(response => {
                         if (!response.ok) {
-                            throw new Error('Error al cargar los detalles de la orden de salida.');
+                            throw new Error('Network response was not ok');
                         }
                         return response.json();
                     })
-                    .then(data => {
-                        despachedItems = {}; // Limpiar la lista actual
-                        data.detalles.forEach(detalle => {
-                            // Añadir los productos de la orden de salida a la lista de despachados
-                            addProductToDespached(detalle.producto_id, detalle.cantidad);
-                        });
-                        // Asegurarse de que el input de cantidad para estos productos sea readonly
-                        renderDespachedItems();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showMessage(error.message, 'error');
-                    });
-            }
-
-            function loadInitialData() {
-                fetch(getProductListUrl)
-                    .then(response => response.json())
                     .then(data => {
                         availableProducts = data.productos;
                         renderProductList();
@@ -381,20 +277,17 @@
             }
 
             function loadInitialDetalles() {
-                // Función para cargar los detalles existentes en modo de edición
                 const formsetContainer = document.getElementById('despached-items');
-                const initialForms = formsetContainer.querySelectorAll('.detalle-form'); // Asumiendo una clase para los formset iniciales
-                initialFormsCount = initialForms.length;
+                const initialForms = formsetContainer.querySelectorAll('.detalle-form');
                 
                 initialForms.forEach((form) => {
                     const productId = form.querySelector('[name$="-producto"]').value;
-                    const cantidad = parseInt(form.querySelector('[name$="-cantidad"]').value, 10);
-                    const detalleId = form.querySelector('[name$="-id"]').value;
-                    addProductToDespached(productId, cantidad, detalleId);
+                    currentSelectedProducts[productId] = { form: form, initial: true };
                 });
+                
+                updateEmptyMessage();
             }
 
-            // Cargar datos iniciales al cargar la página
             loadInitialData();
             
         });
