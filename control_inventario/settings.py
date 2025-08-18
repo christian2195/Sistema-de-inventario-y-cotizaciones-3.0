@@ -64,8 +64,12 @@ WSGI_APPLICATION = 'control_inventario.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': 'db',  # Este es el nombre del servicio de la base de datos en docker-compose.yml
+        'PORT': '5432',
     }
 }
 
@@ -123,4 +127,5 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_REDIRECT_URL = 'inventario:dashboard' # Redirige aquí después de un login exitoso
+
 LOGIN_URL = 'inventario:login'
