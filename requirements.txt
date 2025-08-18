@@ -48,3 +48,4 @@ weasyprint==66.0
 webencodings==0.5.1
 xhtml2pdf==0.2.17
 zopfli==0.2.3.post1
+psycopg2-binary
