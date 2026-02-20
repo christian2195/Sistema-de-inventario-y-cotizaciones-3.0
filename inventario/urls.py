@@ -50,7 +50,7 @@ urlpatterns = [
       # URLs para Notas de Despacho (Nueva interfaz de creación)
     path('notas-despacho/crear/', views.NotaDespachoInterfaceView.as_view(), name='nota_despacho_create'),
     path('notas-despacho/editar/<int:pk>/', views.NotaDespachoInterfaceView.as_view(), name='nota_despacho_update'),
-    path('api/notas-despacho/crear/', views.create_nota_despacho_from_interface, name='create_nota_despacho_from_interface'),
+    # path('api/notas-despacho/crear/', views.create_nota_despacho_from_interface, name='create_nota_despacho_from_interface'),
     path('api/productos-for-dispatch/', views.get_product_list_for_dispatch, name='get_product_list_for_dispatch'),
     path('notas-despacho/', views.NotaDespachoListView.as_view(), name='nota_despacho_list'),
     path('notas-despacho/exportar-excel/', views.export_notas_despacho_excel, name='export_notas_despacho_excel'),
@@ -117,4 +117,5 @@ urlpatterns = [
 # Define los manejadores de errores personalizados
 # Asegúrate de que estas vistas existan en tu inventario/views.py
 handler404 = 'inventario.views.custom_404_view'
+
 handler500 = 'inventario.views.custom_500_view'
