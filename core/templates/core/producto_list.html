@@ -1,0 +1,51 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Catálogo de Productos | EMVEPRO{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box"></i> Catálogo de Productos</h2>
+    <a href="{% url 'core:crear_producto' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo Producto
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Código/SKU</th>
+                    <th>Nombre</th>
+                    <th>Stock Actual</th>
+                    <th>Estatus</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in productos %}
+                <tr>
+                    <td><strong>{{ producto.codigo_sku }}</strong></td>
+                    <td>{{ producto.nombre }}</td>
+                    <td>
+                        <span class="badge {% if producto.stock_actual > 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                            {{ producto.stock_actual }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if producto.activo %}
+                            <span class="badge bg-primary">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-4">No hay productos registrados en el inventario.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

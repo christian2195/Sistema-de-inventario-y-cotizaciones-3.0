@@ -1,0 +1,96 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Entrada de Mercancía | EMVEPRO{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-box-arrow-in-right"></i> Registrar Acta de Recepción</h2>
+
+<form method="POST" id="recepcion-form">
+    {% csrf_token %}
+    
+    <div class="card shadow-sm mb-4 border-top border-primary border-4">
+        <div class="card-header bg-white"><h5 class="mb-0">Datos del Documento</h5></div>
+        <div class="card-body">
+            {{ form|crispy }}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-top border-success border-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Artículos Recibidos</h5>
+        </div>
+        <div class="card-body">
+            {{ formset.management_form }}
+            
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50%;">Producto</th>
+                        <th style="width: 20%;">Cantidad Recibida</th>
+                        <th style="width: 20%;">Costo Unitario ($)</th>
+                        <th style="width: 10%;">Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody id="formset-container">
+                    {% for item_form in formset %}
+                    <tr class="item-row">
+                        {% for hidden in item_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        
+                        <td>{{ item_form.producto }}</td>
+                        <td>{{ item_form.cantidad }}</td>
+                        <td>{{ item_form.costo_unitario }}</td>
+                        <td class="text-center">
+                            {% if item_form.instance.pk %}
+                                {{ item_form.DELETE }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <button type="button" id="add-item-btn" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-plus-lg"></i> Agregar otra fila
+            </button>
+        </div>
+    </div>
+
+    <div class="text-end mb-5">
+        <a href="{% url 'core:dashboard' %}" class="btn btn-secondary me-2">Cancelar</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check2-circle"></i> Procesar Entrada al Inventario
+        </button>
+    </div>
+</form>
+
+<table style="display: none;">
+    <tbody id="empty-form">
+        <tr class="item-row">
+            <td>{{ formset.empty_form.producto }}</td>
+            <td>{{ formset.empty_form.cantidad }}</td>
+            <td>{{ formset.empty_form.costo_unitario }}</td>
+            <td class="text-center"></td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const addButton = document.getElementById('add-item-btn');
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_items_recibidos-TOTAL_FORMS'); 
+        const emptyFormTemplate = document.getElementById('empty-form').innerHTML;
+
+        addButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            const formCount = parseInt(totalForms.value);
+            const newRow = emptyFormTemplate.replace(/__prefix__/g, formCount);
+            container.insertAdjacentHTML('beforeend', newRow);
+            totalForms.value = formCount + 1;
+        });
+    });
+</script>
+{% endblock %}

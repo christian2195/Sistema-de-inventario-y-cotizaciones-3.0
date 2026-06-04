@@ -1,0 +1,101 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Nueva Cotización | EMVEPRO{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-file-earmark-plus"></i> Generar Nueva Cotización</h2>
+
+<form method="POST" id="cotizacion-form">
+    {% csrf_token %}
+    
+    <div class="card shadow-sm mb-4 border-top border-primary border-4">
+        <div class="card-header bg-white"><h5 class="mb-0">Datos del Cliente</h5></div>
+        <div class="card-body">
+            {{ form|crispy }}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-top border-success border-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Productos Solicitados</h5>
+        </div>
+        <div class="card-body">
+            {{ formset.management_form }}
+            
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50%;">Producto</th>
+                        <th style="width: 20%;">Cantidad</th>
+                        <th style="width: 20%;">Precio Unitario ($)</th>
+                        <th style="width: 10%;">Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody id="formset-container">
+                    {% for item_form in formset %}
+                    <tr class="item-row">
+                        {% for hidden in item_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        
+                        <td>{{ item_form.producto }}</td>
+                        <td>{{ item_form.cantidad_solicitada }}</td>
+                        <td>{{ item_form.precio_unitario }}</td>
+                        <td class="text-center">
+                            {% if item_form.instance.pk %}
+                                {{ item_form.DELETE }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <button type="button" id="add-item-btn" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-plus-lg"></i> Agregar otro producto
+            </button>
+        </div>
+    </div>
+
+    <div class="text-end mb-5">
+        <a href="{% url 'core:estatus_proyectos' %}" class="btn btn-secondary me-2">Cancelar</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check2-circle"></i> Confirmar Cotización
+        </button>
+    </div>
+</form>
+
+<table style="display: none;">
+    <tbody id="empty-form">
+        <tr class="item-row">
+            <td>{{ formset.empty_form.producto }}</td>
+            <td>{{ formset.empty_form.cantidad_solicitada }}</td>
+            <td>{{ formset.empty_form.precio_unitario }}</td>
+            <td class="text-center"></td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const addButton = document.getElementById('add-item-btn');
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+        const emptyFormTemplate = document.getElementById('empty-form').innerHTML;
+
+        addButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            const formCount = parseInt(totalForms.value);
+            // Reemplaza el prefijo '__prefix__' por el número de formulario actual
+            const newRow = emptyFormTemplate.replace(/__prefix__/g, formCount);
+            
+            // Inserta la nueva fila en la tabla
+            container.insertAdjacentHTML('beforeend', newRow);
+            
+            // Actualiza el contador total de formularios de Django
+            totalForms.value = formCount + 1;
+        });
+    });
+</script>
+{% endblock %}

@@ -1,51 +1,66 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | EMVEPRO</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #3498db; }
-        .card.finance { border-left-color: #2ecc71; }
-        .metric-title { font-size: 14px; color: #7f8c8d; text-transform: uppercase; font-weight: bold; }
-        .metric-value { font-size: 32px; font-weight: bold; margin: 10px 0 0 0; color: #2c3e50; }
-        .btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; }
-        .btn:hover { background: #2980b9; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Dashboard EMVEPRO</h1>
-        
-        <div class="grid">
-            <div class="card finance">
-                <div class="metric-title">Cuentas por Cobrar (Activas)</div>
-                <div class="metric-value">${{ total_por_cobrar }}</div>
-            </div>
+{% extends 'core/base.html' %}
 
-            <div class="card">
-                <div class="metric-title">Cotizaciones Totales</div>
-                <div class="metric-value">{{ metricas.total_cotizaciones }}</div>
-            </div>
-            <div class="card" style="border-left-color: #f1c40f;">
-                <div class="metric-title">En Proceso / Parcial</div>
-                <div class="metric-value">{{ metricas.en_proceso }}</div>
-            </div>
-            <div class="card" style="border-left-color: #e67e22;">
-                <div class="metric-title">Pendientes</div>
-                <div class="metric-value">{{ metricas.pendientes }}</div>
-            </div>
-            <div class="card" style="border-left-color: #27ae60;">
-                <div class="metric-title">Dotadas al 100%</div>
-                <div class="metric-value">{{ metricas.dotadas }}</div>
+{% block title %}Dashboard | EMVEPRO{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-speedometer2"></i> Dashboard EMVEPRO</h2>
+
+<div class="row g-4">
+    <!-- Pilar 5: Módulo Financiero - Cuentas por Cobrar -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-success border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Cuentas por Cobrar</h6>
+                <h3 class="text-dark mb-0">${{ total_por_cobrar }}</h3>
             </div>
         </div>
-
-        <a href="{% url 'core:estatus_proyectos' %}" class="btn">Ver Estatus de Proyectos ➔</a>
     </div>
-</body>
-</html>
+    
+    <!-- Pilar 5: Módulo Financiero - Deuda Proveedores -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-danger border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Deuda Proveedores</h6>
+                <h3 class="text-dark mb-0">${{ deuda_proveedores }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas Operativas -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-primary border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Cotizaciones Totales</h6>
+                <h3 class="text-dark mb-0">{{ metricas.total_cotizaciones }}</h3>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-success border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Dotadas al 100%</h6>
+                <h3 class="text-dark mb-0">{{ metricas.dotadas }}</h3>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-warning border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">En Proceso / Parcial</h6>
+                <h3 class="text-dark mb-0">{{ metricas.en_proceso }}</h3>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-start border-secondary border-5 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Pendientes</h6>
+                <h3 class="text-dark mb-0">{{ metricas.pendientes }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

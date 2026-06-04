@@ -83,6 +83,7 @@ class MovimientoInventario(models.Model):
     almacen = models.ForeignKey(Almacen, on_delete=models.PROTECT, related_name='movimientos')
     tipo = models.CharField(max_length=15, choices=TIPO_MOVIMIENTO)
     cantidad = models.DecimalField(max_digits=12, decimal_places=2)
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     fecha_movimiento = models.DateTimeField(auto_now_add=True)
     responsable = models.ForeignKey(User, on_delete=models.PROTECT)
     
