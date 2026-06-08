@@ -3,55 +3,83 @@
 {% block title %}Estatus de Proyectos | EMVEPRO{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-clipboard-data"></i> Estatus de Proyectos</h2>
+<div class="container-fluid animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+        <h2 class="text-primary fw-bold mb-0">
+            <i class="bi bi-clipboard-data-fill me-2"></i> Monitoreo y Estatus de Proyectos
+        </h2>
+        <a href="{% url 'core:crear_cotizacion' %}" class="btn btn-primary shadow-sm fw-bold">
+            <i class="bi bi-file-earmark-plus me-1"></i> Nueva Nota de Entrega
+        </a>
+    </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
- <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Nº Rastreo</th>
-                    <th>Cliente</th>
-                    <th>Estatus Actual</th>
-                    <th style="width: 30%;">Progreso de Dotación</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for proyecto in proyectos %}
-                <tr>
-                    <td><strong>{{ proyecto.numero_rastreo }}</strong></td>
-                    <td>{{ proyecto.cliente }}</td>
-                    <td>
-                        <span class="badge {% if proyecto.estatus == 'DOTADO' %}bg-success{% elif proyecto.estatus == 'EN_PROCESO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                            {{ proyecto.estatus }}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="progress" style="height: 25px;">
-                            <div class="progress-bar {% if proyecto.porcentaje_dotacion == 100 %}bg-success{% else %}bg-primary{% endif %}" 
-                                 role="progressbar" 
-                                 style="width: {{ proyecto.porcentaje_dotacion|stringformat:'f' }}%;" 
-                                 aria-valuenow="{{ proyecto.porcentaje_dotacion|stringformat:'f' }}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100">
-                                {{ proyecto.porcentaje_dotacion }}%
-                            </div>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <a href="{% url 'core:cotizacion_pdf' proyecto.id %}" target="_blank" class="btn btn-sm btn-outline-danger" title="Ver PDF">
-                            <i class="bi bi-file-earmark-pdf-fill"></i> PDF
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center py-4">No hay proyectos activos en este momento.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white py-3">
+            <h5 class="mb-0 small text-uppercase tracking-wider fw-bold">
+                <i class="bi bi-table me-2"></i> Ordenación de Entregas por Ente Beneficiario
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-4" style="width: 15%;">Nro. Tracking</th>
+                            <th style="width: 30%;">Institución / Ente Solicitante</th>
+                            <th style="width: 15%;">Estatus Operativo</th>
+                            <th style="width: 25%;">Progreso de Dotación Almacén</th>
+                            <th class="text-center pe-4" style="width: 15%;">Documentación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for proyecto in proyectos %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1 fs-6">
+                                    {{ proyecto.numero_rastreo }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ proyecto.cliente }}</div>
+                                <small class="text-muted font-monospace small">ID Referencial: #{{ proyecto.id }}</small>
+                            </td>
+                            <td>
+                                <span class="badge {% if 'DOTADO' in proyecto.estatus %}bg-success{% elif 'PROCESO' in proyecto.estatus or 'PARCIAL' in proyecto.estatus %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-2 py-1 rounded-pill small">
+                                    <i class="bi bi-circle-fill small me-1"></i> {{ proyecto.estatus }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 shadow-sm border" style="height: 18px; border-radius: 4px;">
+                                        <div class="progress-bar {% if proyecto.porcentaje_dotacion == 100.0 %}bg-success{% else %}bg-primary text-white{% endif %} progress-bar-striped progress-bar-animated fw-bold" 
+                                             role="progressbar" 
+                                             style="width: {{ proyecto.porcentaje_dotacion }}%; font-size: 10px; line-height: 18px;" 
+                                             aria-valuenow="{{ proyecto.porcentaje_dotacion }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ proyecto.porcentaje_dotacion }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center pe-4">
+                                <a href="{% url 'core:generar_pdf_cotizacion' proyecto.id %}" target="_blank" class="btn btn-sm btn-outline-danger px-3 shadow-sm fw-bold">
+                                    <i class="bi bi-file-pdf-fill me-1"></i> Descargar PDF
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-folder-x display-6 d-block mb-3 text-secondary"></i>
+                                No existen proyectos o notas registradas en los históricos del sistema.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

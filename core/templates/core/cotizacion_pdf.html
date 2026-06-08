@@ -3,81 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        @page { size: a4 portrait; margin: 2cm; }
-        body { font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
-        .logo-text { font-size: 24px; font-weight: bold; color: #2c3e50; }
-        .subtitle { font-size: 12px; color: #7f8c8d; }
-        .info-box { width: 100%; margin-bottom: 20px; }
-        .info-box td { padding: 5px; vertical-align: top; }
-        .title { font-size: 16px; font-weight: bold; color: #2980b9; margin-bottom: 10px; }
-        table.items { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        table.items th { background-color: #2c3e50; color: white; padding: 8px; text-align: left; }
-        table.items td { padding: 8px; border-bottom: 1px solid #ddd; }
-        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
-        .total-row { font-weight: bold; background-color: #f8f9fa; }
+        @page { size: letter portrait; margin: 1.5cm; }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1E293B; line-height: 1.4; }
+        .header { border-bottom: 2px solid #0F172A; padding-bottom: 8px; margin-bottom: 15px; }
+        .company-title { font-size: 18px; font-weight: bold; color: #0F172A; text-transform: uppercase; }
+        .document-title { font-size: 14px; font-weight: bold; color: #D97706; text-align: right; }
+        .info-table { width: 100%; margin-bottom: 15px; border-collapse: collapse; }
+        .info-table td { padding: 4px; vertical-align: top; }
+        .section-header { background-color: #E2E8F0; font-weight: bold; padding: 6px; margin-top: 15px; border: 1px solid #CBD5E1; text-transform: uppercase; }
+        table.items { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        table.items th { background-color: #1E293B; color: white; padding: 6px; font-size: 10px; text-transform: uppercase; }
+        table.items td { padding: 6px; border: 0.5px solid #CBD5E1; }
+        .totals-table { width: 40%; margin-left: 60%; margin-top: 15px; border-collapse: collapse; }
+        .totals-table td { padding: 5px; border-bottom: 0.5px solid #E2E8F0; }
+        .grand-total-bs { background-color: #FEF3C7; font-weight: bold; font-size: 12px; border: 1px solid #F59E0B; }
+        .footer { font-size: 8px; color: #64748B; text-align: center; margin-top: 30px; border-top: 0.5px solid #CBD5E1; padding-top: 5px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo-text">EMVEPRO</div>
-        <div class="subtitle">Soluciones Tecnológicas e Inventario</div>
-    </div>
-
-    <table class="info-box">
+    <table class=\"info-table\">
         <tr>
-            <td style="width: 60%;">
-                <div class="title">Datos del Cliente:</div>
-                <strong>{{ cotizacion.cliente.nombre }}</strong><br>
-                RIF/NIT: {{ cotizacion.cliente.rif_nit }}<br>
-                Contacto: {{ cotizacion.cliente.contacto_principal }}<br>
-                Teléfono: {{ cotizacion.cliente.telefono }}
+            <td>
+                <div class=\"company-title\">EMVEPRO C.A.</div>
+                <div class=\"subtitle\">Venezuela Productiva - RIF: J-40012345-6</div>
+                <div>Gerencia de Tecnología de la Información y Comunicación</div>
             </td>
-            <td style="width: 40%; text-align: right;">
-                <div class="title">Cotización Oficial</div>
-                <strong>Nº Rastreo:</strong> {{ cotizacion.numero_rastreo }}<br>
-                <strong>Fecha:</strong> {{ cotizacion.fecha_emision|date:"d/m/Y" }}<br>
-                <strong>Estatus:</strong> {{ cotizacion.get_estatus_display }}
+            <td style=\"text-align: right;\">
+                <div class=\"document-title\">NOTA DE ENTREGA / COTIZACIÓN</div>
+                <div class=\"fw-bold\">Tracking Nro: {{ cotizacion.numero_rastreo }}</div>
+                <div>Fecha de Emisión: {{ cotizacion.fecha_emision|date:\"d/m/Y H:i\" }}</div>
+                <div>Estatus: <b>{{ cotizacion.get_estatus_display }}</b></div>
             </td>
         </tr>
     </table>
 
-    <div class="title">Detalle de Productos Solicitados</div>
-    <table class="items">
+    <div class=\"section-header\">Datos Generales del Solicitante</div>
+    <table class=\"info-table\" style=\"margin-top: 5px; border: 0.5px solid #CBD5E1;\">
+        <tr>
+            <td style=\"padding: 6px; width: 50%;\">
+                <strong>Razón Social:</strong> {{ cotizacion.cliente.nombre }}<br>
+                <strong>RIF/NIT:</strong> {{ cotizacion.cliente.rif_nit }}<br>
+                <strong>Dirección:</strong> {{ cotizacion.cliente.direccion|default:\"Distrito Capital, Venezuela\" }}
+            </td>
+            <td style=\"padding: 6px; width: 50%; border-left: 0.5px solid #CBD5E1;\">
+                <strong>Referencia Proyecto:</strong> {{ cotizacion.referencia_proyecto|default:\"N/P\" }}<br>
+                <strong>Tasa Referencial:</strong> {{ cotizacion.observacion_tasa }} (Bs. {{ cotizacion.tasa_bcv|floatformat:4 }})
+            </td>
+        </tr>
+    </table>
+
+    <div class=\"section-header\">Cuerpo y Estructura de Renglones</div>
+    <table class=\"items\">
         <thead>
             <tr>
-                <th style="width: 40%;">Producto</th>
-                <th style="width: 20%;">Código</th>
-                <th style="width: 20%; text-align: center;">Cantidad</th>
-                <th style="width: 20%; text-align: right;">Precio Unit. ($)</th>
+                <th style=\"width: 35%;\">Descripción del Producto</th>
+                <th style=\"width: 15%;\">Sección / Área</th>
+                <th style=\"width: 10%; text-align: center;\">Cant.</th>
+                <th style=\"width: 12%; text-align: right;\">Costo Base ($)</th>
+                <th style=\"width: 13%; text-align: right;\">PVP Unit ($)</th>
+                <th style=\"width: 15%; text-align: right;\">Total Renglón ($)</th>
             </tr>
         </thead>
         <tbody>
             {% for item in cotizacion.items.all %}
             <tr>
-                <td>{{ item.producto.nombre }}</td>
-                <td>{{ item.producto.codigo_sku }}</td>
-                <td style="text-align: center;">{{ item.cantidad_solicitada }}</td>
-                <td style="text-align: right;">{{ item.precio_unitario }}</td>
+                <td><strong>[{{ item.producto.codigo_sku }}]</strong> {{ item.producto.nombre }}</td>
+                <td><small>{{ item.seccion_departamento }}</small></td>
+                <td style=\"text-align: center;\">{{ item.cantidad_solicitada|floatformat:0 }}</td>
+                <td style=\"text-align: right;\">{{ item.costo_base_usd|floatformat:2 }}</td>
+                <td style=\"text-align: right;\">{{ item.pvp_unitario_usd|floatformat:2 }}</td>
+                <td style=\"text-align: right; font-weight: bold;\">{{ item.total_item_usd|floatformat:2 }}</td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="4" style="text-align: center;">No hay artículos registrados.</td>
-            </tr>
+            <tr><td colspan=\"6\" style=\"text-align: center;\">No hay artículos cargados en este documento.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
+    <table class=\"totals-table\">
+        <tr>
+            <td>Subtotal General ($):</td>
+            <td style=\"text-align: right;\">{{ cotizacion.subtotal_usd|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Base Imponible ($):</td>
+            <td style=\"text-align: right;\">{{ cotizacion.base_imponible_usd|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td>Monto IVA (16%):</td>
+            <td style=\"text-align: right;\">{{ cotizacion.monto_iva_usd|floatformat:2 }}</td>
+        </tr>
+        <tr>
+            <td><b>Total Formato ($):</b></td>
+            <td style=\"text-align: right; font-weight: bold;\">{{ cotizacion.total_usd|floatformat:2 }}</td>
+        </tr>
+        <tr class=\"grand-total-bs\">
+            <td>TOTAL GENERAL (Bs.):</td>
+            <td style=\"text-align: right;\">Bs. {{ cotizacion.total_bs|floatformat:2 }}</td>
+        </tr>
+    </table>
+
     {% if cotizacion.observaciones %}
-    <div style="margin-top: 30px;">
-        <strong>Observaciones:</strong><br>
-        <p>{{ cotizacion.observaciones }}</p>
+    <div style=\"margin-top: 15px; border-top: 0.5px solid #CBD5E1; padding-top: 5px;\">
+        <strong>Observaciones Generales de Distribución:</strong><br>
+        <p style=\"color: #475569;\">{{ cotizacion.observaciones }}</p>
     </div>
     {% endif %}
 
-    <div class="footer">
-        Documento generado automáticamente por el Sistema EMVEPRO - Gerencia de Tecnología de la Información y Comunicación
+    <div class=\"footer\">
+        EMVEPRO C.A. - Documento Informativo Emitido bajo los Canales Tecnológicos de la Gerencia de TIC.
     </div>
 
 </body>

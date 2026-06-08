@@ -3,49 +3,189 @@
 {% block title %}Catálogo de Productos | EMVEPRO{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-box"></i> Catálogo de Productos</h2>
-    <a href="{% url 'core:crear_producto' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Nuevo Producto
-    </a>
-</div>
+<div class="container-fluid animate__animated animate__fadeIn">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+        <div>
+            <h3 class="mb-0 text-dark fw-bold">
+                <i class="bi bi-box-seam text-primary me-2"></i>Catálogo Base de Productos
+            </h3>
+            <small class="text-muted">Gestión de inventario, costos institucionales y referencias de Odoo de la sede Boleíta / La Urbina</small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'core:carga_masiva_productos' %}" class="btn btn-outline-success shadow-sm fw-bold">
+                <i class="bi bi-file-earmark-excel me-1"></i> Carga Masiva (.xlsx)
+            </a>
+            <a href="{% url 'core:crear_producto' %}" class="btn btn-primary shadow-sm fw-bold">
+                <i class="bi bi-plus-circle me-1"></i> Registrar Producto
+            </a>
+        </div>
+    </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Código/SKU</th>
-                    <th>Nombre</th>
-                    <th>Stock Actual</th>
-                    <th>Estatus</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for producto in productos %}
-                <tr>
-                    <td><strong>{{ producto.codigo_sku }}</strong></td>
-                    <td>{{ producto.nombre }}</td>
-                    <td>
-                        <span class="badge {% if producto.stock_actual > 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">
-                            {{ producto.stock_actual }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if producto.activo %}
-                            <span class="badge bg-primary">Activo</span>
-                        {% else %}
-                            <span class="badge bg-secondary">Inactivo</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-4">No hay productos registrados en el inventario.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card shadow-sm border-0 mb-4 rounded-3">
+        <div class="card-body bg-white p-3">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-producto" class="form-control bg-light border-start-0" placeholder="Buscar por Nombre, SKU Interno, Código Odoo o Almacén...">
+                <button class="btn btn-outline-secondary" type="button" id="limpiar-busqueda">
+                    <i class="bi bi-x-circle-fill"></i> Limpiar
+                </button>
+            </div>
+            <div id="conteo-resultados" class="form-text text-muted mt-2 ps-1 small" style="display: none;">
+                Se encontraron <span id="num-filas" class="fw-bold text-primary">0</span> productos coincidentes.
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0 rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tabla-productos">
+                    <thead> <tr>
+                            <th class="ps-4" style="width: 12%;">SKU Interno</th>
+                            <th style="width: 15%;">Código Odoo</th>
+                            <th style="width: 28%;">Descripción del Producto</th>
+                            <th style="width: 15%;">Ubicación / Almacén</th>
+                            <th class="text-center" style="width: 10%;">Stock Actual</th>
+                            <th class="text-end" style="width: 10%;">Costo Compra</th>
+                            <th class="text-end" style="width: 10%;">Precio Venta</th>
+                            <th class="text-center" style="width: 10%;">Estatus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos %}
+                        <tr class="fila-producto">
+                            <td class="ps-4 col-sku">
+                                <span class="font-monospace fw-bold text-secondary">{{ producto.codigo_sku }}</span>
+                            </td>
+                            
+                            <td class="col-odoo">
+                                {% if "Código Odoo:" in producto.descripcion %}
+                                    <span class="badge bg-light text-dark border font-monospace fw-bold">
+                                        {{ producto.descripcion|slice:"13:" }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small italic">No asociado</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="col-nombre">
+                                <div class="fw-bold text-dark-emphasis text-item-nombre">{{ producto.nombre }}</div>
+                                {% if producto.descripcion and "Código Odoo:" not in producto.descripcion %}
+                                    <small class="text-muted d-block text-truncate text-item-desc" style="max-width: 320px;">
+                                        {{ producto.descripcion }}
+                                    </small>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="col-almacen">
+                                <span class="text-dark fw-semibold small text-item-almacen">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>
+                                    {{ producto.almacen.nombre|default:"Sede No Asignada" }}
+                                </span>
+                            </td>
+                            
+                            <td class="text-center">
+                                <span class="badge {% if producto.stock_actual > 0 %}bg-success-subtle text-success border border-success-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %} px-2 py-1 fs-6 w-75 fw-semibold">
+                                    {{ producto.stock_actual }}
+                                </span>
+                            </td>
+                            
+                            <td class="text-end fw-bold text-secondary">
+                                ${{ producto.costo_compra|default:"0.00" }}
+                            </td>
+                            
+                            <td class="text-end fw-bold text-primary">
+                                ${{ producto.precio_venta|default:"0.00" }}
+                            </td>
+                            
+                            <td class="text-center">
+                                {% if producto.activo %}
+                                    <span class="badge bg-success rounded-pill px-3 py-1"><i class="bi bi-check2 me-1"></i>Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="bi bi-eye-slash me-1"></i>Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="fila-vacia-original">
+                            <td colspan="8" class="text-center p-5 text-muted">
+                                <i class="bi bi-box-open display-3 d-block mb-3 text-warning"></i>
+                                <h5>No hay productos registrados en el catálogo.</h5>
+                                <small>Utiliza la opción de <b>Carga Masiva</b> para importar tus listas estructuradas.</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <tr id="fila-no-resultados" style="display: none;">
+                            <td colspan="8" class="text-center p-5 text-muted">
+                                <i class="bi bi-search display-3 d-block mb-3 text-danger"></i>
+                                <h5>No se encontraron productos con ese criterio.</h5>
+                                <small>Prueba buscando con otra palabra clave, SKU, referencia Odoo o almacén.</small>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputBuscador = document.getElementById('buscador-producto');
+        const btnLimpiar = document.getElementById('limpiar-busqueda');
+        const conteoInfo = document.getElementById('conteo-resultados');
+        const txtNumFilas = document.getElementById('num-filas');
+        const filas = document.querySelectorAll('.fila-producto');
+        const filaNoResultados = document.getElementById('fila-no-resultados');
+
+        inputBuscador.addEventListener('input', function() {
+            const consulta = this.value.toLowerCase().trim();
+            let visibles = 0;
+
+            if (consulta === "") {
+                filas.forEach(f => f.style.display = "");
+                filaNoResultados.style.display = "none";
+                conteoInfo.style.display = "none";
+                return;
+            }
+
+            filas.forEach(fila => {
+                const sku = fila.querySelector('.col-sku').textContent.toLowerCase();
+                const odoo = fila.querySelector('.col-odoo').textContent.toLowerCase();
+                const nombre = fila.querySelector('.text-item-nombre').textContent.toLowerCase();
+                const almacen = fila.querySelector('.text-item-almacen').textContent.toLowerCase();
+                
+                const nodeDesc = fila.querySelector('.text-item-desc');
+                const desc = nodeDesc ? nodeDesc.textContent.toLowerCase() : "";
+
+                // Incluido el Almacen dentro del mapa de filtrado instantáneo
+                if (sku.includes(consulta) || odoo.includes(consulta) || nombre.includes(consulta) || desc.includes(consulta) || almacen.includes(consulta)) {
+                    fila.style.display = "";
+                    visibles++;
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+
+            txtNumFilas.textContent = visibles;
+            conteoInfo.style.display = "block";
+
+            if (visibles === 0) {
+                filaNoResultados.style.display = "";
+            } else {
+                filaNoResultados.style.display = "none";
+            }
+        });
+
+        btnLimpiar.addEventListener('click', function() {
+            inputBuscador.value = "";
+            filas.forEach(f => f.style.display = "");
+            filaNoResultados.style.display = "none";
+            conteoInfo.style.display = "none";
+            inputBuscador.focus();
+        });
+    });
+</script>
 {% endblock %}

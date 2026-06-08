@@ -25,7 +25,13 @@ SECRET_KEY = 'django-insecure-o73hw+%s@h1=7v2bdqxe+1vu+d&23y$sh9zx62gbnltlym26oz
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["10.12.12.42", "localhost", "127.0.0.1","proyecto.emvepro.gob.ve"]
+ALLOWED_HOSTS = [
+    'proyectos.emvepro.gob.ve',
+    'proyecto.emvepro.gob.ve',
+    '10.12.12.42',
+    '127.0.0.1',
+    'localhost',
+]
 
 
 # Application definition
@@ -77,8 +83,12 @@ WSGI_APPLICATION = 'emvepro_sys.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'emvepro_db',
+        'USER': 'emvepro_user',
+        'PASSWORD': 'tecno/*2025*',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
     }
 }
 
@@ -107,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Caracas'
 
 USE_I18N = True
 
@@ -117,7 +127,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+import os
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"

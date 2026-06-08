@@ -1,0 +1,75 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Carga Masiva Excel | EMVEPRO{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animate__animated animate__fadeIn">
+    <div class="col-md-7">
+        
+        {% if exitos > 0 %}
+            <div class="alert alert-success shadow border-0 border-start border-success border-4 d-flex align-items-center mb-3">
+                <i class="bi bi-check-circle-fill fs-3 me-3 text-success"></i>
+                <div>
+                    <h6 class="mb-0 fw-bold">¡Importación Exitosa!</h6>
+                    <small>Se han procesado, actualizado o registrado de forma limpia <b>{{ exitos }}</b> productos directamente desde tu hoja Excel.</small>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if errores %}
+            <div class="alert alert-danger shadow border-0 border-start border-danger border-4 mb-3">
+                <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i> Conflictos detectados durante la lectura:</h6>
+                <ul class="mb-0 small font-monospace" style="max-height: 150px; overflow-y: auto;">
+                    {% for err in errores %}
+                        <li>{{ err }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <div class="card shadow border-0 border-top border-info border-4 mt-2">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0 text-dark fw-bold">
+                    <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Carga Masiva de Productos (.xlsx)
+                </h4>
+            </div>
+            <div class="card-body bg-light-subtle p-4">
+                <div class="p-3 bg-success bg-opacity-10 text-success border border-success border-opacity-20 rounded-3 small mb-4">
+                    <h6 class="fw-bold mb-1 text-success"><i class="bi bi-info-circle-fill me-1"></i> Formato de Inventario Boleíta Sincronizado:</h6>
+                    Ya no necesitas convertir a CSV. Sube directamente tu archivo original de Excel. El sistema buscará inteligentemente las siguientes columnas en tu primera pestaña:
+                    <div class="bg-dark text-white rounded p-2 mt-2 font-monospace text-center small select-all">
+                        CODIGO | DESCRIPCION | INVENTARIO | CODIGO ODDO | COSTO | PRECIO | ALMACEN
+                    </div>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data" id="upload-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary">Seleccione o arrastre el archivo original de Excel (.xlsx)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-file-earmark-excel text-success"></i></span>
+                            <input type="file" name="archivo_xlsx" class="form-control border-start-0" accept=".xlsx" required id="file-input">
+                        </div>
+                    </div>
+                    
+                    <div class="pt-3 border-top d-flex justify-content-between align-items-center">
+                        <a href="{% url 'core:lista_productos' %}" class="btn btn-secondary px-3 shadow-sm">Ver Catálogo</a>
+                        <button type="submit" class="btn btn-success text-white fw-bold px-4 shadow" id="submit-btn">
+                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Iniciar Procesamiento Excel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('upload-form').addEventListener('submit', function() {
+        const btn = document.getElementById('submit-btn');
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Analizando celdas en Fuerte Tiuna...`;
+        btn.classList.add('disabled');
+    });
+</script>
+{% endblock %}

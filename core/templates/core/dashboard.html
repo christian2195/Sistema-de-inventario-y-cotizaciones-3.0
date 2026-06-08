@@ -5,60 +5,124 @@
 {% block content %}
 <h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-speedometer2"></i> Dashboard EMVEPRO</h2>
 
-<div class="row g-4">
-    <!-- Pilar 5: Módulo Financiero - Cuentas por Cobrar -->
-    <div class="col-md-6 col-lg-3">
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-4">
         <div class="card h-100 border-start border-success border-5 shadow-sm">
             <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Cuentas por Cobrar</h6>
-                <h3 class="text-dark mb-0">${{ total_por_cobrar }}</h3>
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Acumulado en Bolívares (Tasa BCV)</h6>
+                <h3 class="text-dark mb-0">Bs. {{ total_general_bs|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
     
-    <!-- Pilar 5: Módulo Financiero - Deuda Proveedores -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-start border-danger border-5 shadow-sm">
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-start border-info border-5 shadow-sm">
             <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Deuda Proveedores</h6>
-                <h3 class="text-dark mb-0">${{ deuda_proveedores }}</h3>
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Monto Proyectado Operaciones</h6>
+                <h3 class="text-dark mb-0">$ {{ monto_proyectado_usd|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
 
-    <!-- Métricas Operativas -->
-    <div class="col-md-6 col-lg-3">
+    <div class="col-md-6 col-lg-4">
         <div class="card h-100 border-start border-primary border-5 shadow-sm">
             <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Cotizaciones Totales</h6>
-                <h3 class="text-dark mb-0">{{ metricas.total_cotizaciones }}</h3>
+                <h6 class="text-muted text-uppercase fw-bold mb-2">Valor Neto en Divisas (USD)</h6>
+                <h3 class="text-dark mb-0">$ {{ total_general_usd|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
-    
+</div>
+
+<div class="row g-4 mb-4">
     <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-start border-success border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Dotadas al 100%</h6>
-                <h3 class="text-dark mb-0">{{ metricas.dotadas }}</h3>
+        <div class="card bg-light shadow-sm">
+            <div class="card-body text-center">
+                <h1 class="display-6 fw-bold text-primary">{{ total_cotizaciones }}</h1>
+                <p class="text-muted mb-0"><i class="bi bi-file-earmark-text"></i> Notas de Entrega</p>
             </div>
         </div>
     </div>
-    
     <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-start border-warning border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">En Proceso / Parcial</h6>
-                <h3 class="text-dark mb-0">{{ metricas.en_proceso }}</h3>
+        <div class="card bg-light shadow-sm">
+            <div class="card-body text-center">
+                <h1 class="display-6 fw-bold text-success">{{ total_actas_recepcion }}</h1>
+                <p class="text-muted mb-0"><i class="bi bi-box-arrow-in-right"></i> Actas de Recepción</p>
             </div>
         </div>
     </div>
-    
     <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-start border-secondary border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Pendientes</h6>
-                <h3 class="text-dark mb-0">{{ metricas.pendientes }}</h3>
+        <div class="card bg-light shadow-sm">
+            <div class="card-body text-center">
+                <h1 class="display-6 fw-bold text-warning">{{ total_notas_despacho }}</h1>
+                <p class="text-muted mb-0"><i class="bi bi-truck"></i> Notas de Despacho</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card bg-light shadow-sm">
+            <div class="card-body text-center">
+                <h1 class="display-6 fw-bold text-danger">{{ productos_bajo_stock }}</h1>
+                <p class="text-muted mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Productos Alerta</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-bold text-secondary"><i class="bi bi-list-check"></i> Últimas Notas de Entrega Generadas</div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nro. Tracking</th>
+                            <th>Cliente / Ente</th>
+                            <th>Estatus</th>
+                            <th class="text-end">Total Bs.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cot in cotizaciones_recientes %}
+                        <tr>
+                            <td><small class="fw-bold text-primary">{{ cot.numero_rastreo }}</small></td>
+                            <td><small>{{ cot.cliente.nombre }}</small></td>
+                            <td>
+                                <span class="badge {% if cot.estatus == 'DOTADO' %}bg-success{% elif cot.estatus == 'PENDIENTE' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ cot.get_estatus_display }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold"><small>{{ cot.total_bs|floatformat:2 }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center py-3">No hay registros recientes.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-bold text-secondary"><i class="bi bi-clock-history"></i> Despachos de Carga Recientes</div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <tbody class="small">
+                        {% for desp in despachos_recientes %}
+                        <tr class="py-2">
+                            <td class="ps-3">
+                                <i class="bi bi-truck text-warning me-2"></i><b>Guía #{{ desp.numero_guia }}</b><br>
+                                <span class="text-muted">Responsable: {{ desp.responsable.username }}</span>
+                            </td>
+                            <td class="text-end pe-3 text-muted"><small>{{ desp.fecha_despacho|date:'d/m H:i' }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="text-center py-4 text-muted">Sin despachos reportados hoy.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

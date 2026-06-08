@@ -3,36 +3,64 @@
 {% block title %}Finanzas Proveedores | EMVEPRO{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-bank"></i> Deuda con Proveedores</h2>
+<div class="container-fluid animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+        <h2 class="text-danger fw-bold mb-0 text-dark">
+            <i class="bi bi-bank2 me-2 text-danger"></i> Balance Financiero de Proveedores
+        </h2>
+        <a href="{% url 'core:crear_proveedor' %}" class="btn btn-danger shadow-sm fw-bold">
+            <i class="bi bi-truck-flatbed me-1"></i> Registrar Nuevo Proveedor
+        </a>
+    </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Proveedor</th>
-                    <th>Total Facturado (Entradas)</th>
-                    <th>Total Pagado</th>
-                    <th>Deuda Actual</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dato in datos_financieros %}
-                <tr>
-                    <td><strong>{{ dato.proveedor }}</strong></td>
-                    <td>${{ dato.total_facturado }}</td>
-                    <td>${{ dato.total_pagado }}</td>
-                    <td class="{% if dato.deuda_actual > 0 %}text-danger fw-bold{% else %}text-success fw-bold{% endif %}">
-                        ${{ dato.deuda_actual }}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-4">No hay registros financieros de proveedores aún.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white py-3">
+            <h5 class="mb-0 small text-uppercase tracking-wider fw-bold">
+                <i class="bi bi-currency-dollar me-1"></i> Cuentas por Pagar y Conciliación de Actas de Recepción
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-4" style="width: 35%;">Proveedor Comercial / Razón Social</th>
+                            <th style="width: 20%;" class="text-end">Total Facturado (Entradas)</th>
+                            <th style="width: 20%;" class="text-end">Total Amortizado (Pagado)</th>
+                            <th style="width: 25%;" class="text-end pe-4">Deuda Actual Pendiente</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dato in datos_financieros %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark"><i class="bi bi-patch-check-fill text-success me-1"></i> {{ dato.proveedor }}</div>
+                                <small class="text-muted small">Cuentas Auditadas en Divisas (USD)</small>
+                            </td>
+                            <td class="text-end fw-bold text-secondary">
+                                $ {{ dato.total_facturado|floatformat:2 }}
+                            </td>
+                            <td class="text-end fw-bold text-success">
+                                $ {{ dato.total_pagado|floatformat:2 }}
+                            </td>
+                            <td class="text-end pe-4">
+                                <span class="fs-6 px-3 py-1 rounded fw-bold {% if dato.deuda_actual > 0.00 %}bg-danger-subtle text-danger border border-danger-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %}">
+                                    $ {{ dato.deuda_actual|floatformat:2 }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-calculator display-6 d-block mb-3 text-secondary"></i>
+                                No se registran movimientos contables ni pasivos pendientes con proveedores.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
