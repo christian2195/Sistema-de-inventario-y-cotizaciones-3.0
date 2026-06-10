@@ -301,15 +301,15 @@ class NotaDespachoForm(forms.ModelForm):
     class Meta:
         model = NotaDespacho
         fields = [
-            'cotizacion', 'numero_guia', 'nombre_beneficiario', 'proveedor_origen', 
-            'nro_orden_asociada', 'nombre_conductor', 'cedula_conductor', 
-            'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo', 'beneficiario_autorizado', 
-            'cedula_beneficiario', 'telefono_beneficiario', 'fecha_hora_llegada_conductor', 
-            'fecha_hora_llegada_beneficiario', 'observaciones'
+            'cotizacion', 'nombre_beneficiario', 'proveedor_origen',
+            'nro_orden_asociada', 'nombre_conductor', 'cedula_conductor',
+            'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo',
+            'beneficiario_autorizado', 'cedula_beneficiario', 'telefono_beneficiario',
+            'fecha_hora_llegada_conductor', 'fecha_hora_llegada_beneficiario',
+            'observaciones'
         ]
         widgets = {
             'cotizacion': forms.Select(attrs={'class': 'form-select select2'}),
-            'numero_guia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: D-0000001'}),
             'nombre_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
             'proveedor_origen': forms.TextInput(attrs={'class': 'form-control'}),
             'nro_orden_asociada': forms.TextInput(attrs={'class': 'form-control'}),
@@ -321,10 +321,15 @@ class NotaDespachoForm(forms.ModelForm):
             'beneficiario_autorizado': forms.TextInput(attrs={'class': 'form-control'}),
             'cedula_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
             'telefono_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
-            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
+            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
 
 class ItemDespachoForm(forms.ModelForm):
     class Meta:

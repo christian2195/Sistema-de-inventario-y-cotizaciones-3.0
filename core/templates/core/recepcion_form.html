@@ -1,95 +1,272 @@
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}Entrada de Mercancía | EMVEPRO{% endblock %}
+{% block title %}EMVEPRO POS | Recepción de Almacén{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* PANTALLA COMPLETA */
+    main.p-4 { padding: 0 !important; }
+    
+    .pos-wrapper { 
+        height: calc(100vh - 70px); 
+        display: flex; 
+        background-color: #f8fafc; 
+        overflow: hidden; 
+    }
+    
+    /* PANEL IZQUIERDO: CONTROLES DE ENTRADA */
+    .pos-control-pane { 
+        width: 32%; 
+        min-width: 320px;
+        max-width: 400px;
+        padding: 1.5rem; 
+        overflow-y: auto; 
+        background: #f1f5f9;
+        border-right: 1px solid #cbd5e1;
+        box-shadow: inset -4px 0 10px rgba(0,0,0,0.02);
+    }
+    
+    .action-panel {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+    }
+
+    /* PANEL DERECHO: TICKET DE RECEPCIÓN */
+    .pos-ticket-pane { 
+        flex-grow: 1;
+        background: #fff; 
+        display: flex; 
+        flex-direction: column; 
+        z-index: 10; 
+    }
+    
+    .ticket-header { 
+        padding: 1.2rem; 
+        background: #fff; 
+        border-bottom: 2px dashed #cbd5e1; 
+    }
+    
+    .ticket-body { 
+        flex-grow: 1; 
+        overflow-y: auto; 
+        padding: 1rem 1.5rem; 
+        background: #f8fafc; 
+    }
+    
+    .ticket-row { 
+        background: #fff; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 8px; 
+        padding: 1rem; 
+        margin-bottom: 0.8rem; 
+        border-left: 4px solid #10b981; /* Borde VERDE (Success) para Entradas */
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        transition: all 0.2s ease-in-out;
+    }
+
+    .ticket-row:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        transform: translateY(-2px);
+    }
+    
+    .ticket-row .form-control, .ticket-row .form-select {
+        border: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.5rem;
+    }
+    
+    /* FOOTER DE REGISTRO */
+    .ticket-footer { 
+        background: #0f172a; 
+        color: #fff; 
+        padding: 1.5rem 2rem; 
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-box-arrow-in-right"></i> Registrar Acta de Recepción</h2>
-
-<form method="POST" id="recepcion-form">
+<form method="POST" id="recepcion-form" class="h-100">
     {% csrf_token %}
+    {{ formset.management_form }}
     
-    <div class="card shadow-sm mb-4 border-top border-primary border-4">
-        <div class="card-header bg-white"><h5 class="mb-0">Datos del Documento</h5></div>
-        <div class="card-body">
-            {{ form|crispy }}
-        </div>
-    </div>
+    <div class="pos-wrapper animate__animated animate__fadeIn">
+        
+        <div class="pos-control-pane">
+            
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold text-secondary mb-0"><i class="bi bi-box-arrow-in-right me-2"></i> Recepción</h4>
+                <a href="{% url 'core:estatus_proyectos' %}" class="btn btn-sm btn-outline-danger shadow-sm fw-bold">
+                    <i class="bi bi-x-lg"></i> Salir
+                </a>
+            </div>
 
-    <div class="card shadow-sm mb-4 border-top border-success border-4">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Artículos Recibidos</h5>
-        </div>
-        <div class="card-body">
-            {{ formset.management_form }}
-            
-            <table class="table table-bordered align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 50%;">Producto</th>
-                        <th style="width: 20%;">Cantidad Recibida</th>
-                        <th style="width: 20%;">Costo Unitario ($)</th>
-                        <th style="width: 10%;">Eliminar</th>
-                    </tr>
-                </thead>
-                <tbody id="formset-container">
-                    {% for item_form in formset %}
-                    <tr class="item-row">
-                        {% for hidden in item_form.hidden_fields %}
-                            {{ hidden }}
-                        {% endfor %}
-                        
-                        <td>{{ item_form.producto }}</td>
-                        <td>{{ item_form.cantidad }}</td>
-                        <td>{{ item_form.costo_unitario }}</td>
-                        <td class="text-center">
-                            {% if item_form.instance.pk %}
-                                {{ item_form.DELETE }}
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <button type="button" id="add-item-btn" class="btn btn-outline-success btn-sm">
-                <i class="bi bi-plus-lg"></i> Agregar otra fila
+            <button type="button" class="btn btn-success w-100 py-3 mb-4 shadow fw-bold fs-5 d-flex justify-content-center align-items-center rounded-3 text-white" id="add-item-btn" style="border: 2px dashed rgba(255,255,255,0.5);">
+                <i class="bi bi-cart-plus-fill me-2 fs-3"></i> AÑADIR RENGLÓN
             </button>
-        </div>
-    </div>
 
-    <div class="text-end mb-5">
-        <a href="{% url 'core:dashboard' %}" class="btn btn-secondary me-2">Cancelar</a>
-        <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-check2-circle"></i> Procesar Entrada al Inventario
-        </button>
+            <div class="action-panel mb-4 border-top border-success border-4">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-clipboard-check-fill me-1"></i> Control de Proveedor / Origen</h6>
+                <div class="row g-3">
+                    <div class="col-12">{{ form|crispy }}</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="pos-ticket-pane">
+            
+            <div class="ticket-header">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-boxes me-2 text-success"></i> Acta de Recepción Física</h5>
+                    <span class="badge bg-success text-white rounded-pill fw-bold shadow-sm">Ingreso en Proceso</span>
+                </div>
+            </div>
+
+            <div class="ticket-body" id="formset-container">
+                {% for item_form in formset %}
+                <div class="ticket-row animate__animated animate__fadeInUp item-card">
+                    {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+                    <div class="row g-2 align-items-end item-row">
+                        <div class="col-md-5 mb-1">
+                            <label class="text-muted small fw-bold mb-0">Producto (Catálogo Maestro)</label>
+                            {{ item_form.producto }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small fw-bold mb-0">Almacén de Destino</label>
+                            {{ item_form.almacen_destino }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="text-muted small fw-bold mb-0">Cant. Ingresa</label>
+                            {{ item_form.cantidad_recibida }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small fw-bold mb-0">Marca del Equipo</label>
+                            {{ item_form.marca }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small fw-bold mb-0">Modelo / Serial</label>
+                            {{ item_form.modelo }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="text-muted small fw-bold mb-0">Condición</label>
+                            {{ item_form.condicion }}
+                        </div>
+                        <div class="col-md-1 text-center">
+                            {% if formset.can_delete %}
+                                <div class="d-none">{{ item_form.DELETE }}</div>
+                                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove-row" title="Eliminar"><i class="bi bi-trash-fill fs-5"></i></button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="ticket-footer shadow-lg">
+                <div class="row align-items-center">
+                    <div class="col-md-8 border-end border-secondary pe-4">
+                        <span class="text-success fw-bold fs-6 d-block mb-1"><i class="bi bi-info-circle me-1"></i> ATENCIÓN OPERATIVA</span>
+                        <div class="text-light" style="font-size: 0.85rem; font-weight: normal;">
+                            Verifique el estado físico de los equipos. Al firmar y procesar esta acta, las cantidades se sumarán de forma inmediata al inventario de la institución.
+                        </div>
+                    </div>
+                    <div class="col-md-4 ps-4">
+                        <button type="submit" class="btn btn-success w-100 py-3 fw-bold fs-6 shadow text-white" style="border-radius: 10px;">
+                            <i class="bi bi-shield-check me-2"></i> PROCESAR INGRESO
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </form>
 
-<table style="display: none;">
-    <tbody id="empty-form">
-        <tr class="item-row">
-            <td>{{ formset.empty_form.producto }}</td>
-            <td>{{ formset.empty_form.cantidad }}</td>
-            <td>{{ formset.empty_form.costo_unitario }}</td>
-            <td class="text-center"></td>
-        </tr>
-    </tbody>
-</table>
+<div id="empty-form" style="display: none;">
+    <div class="ticket-row animate__animated animate__fadeInRight item-card">
+        <div class="row g-2 align-items-end item-row">
+            <div class="col-md-5 mb-1">
+                <label class="text-muted small fw-bold mb-0">Producto (Catálogo Maestro)</label>
+                {{ formset.empty_form.producto }}
+            </div>
+            <div class="col-md-3">
+                <label class="text-muted small fw-bold mb-0">Almacén de Destino</label>
+                {{ formset.empty_form.almacen_destino }}
+            </div>
+            <div class="col-md-2">
+                <label class="text-muted small fw-bold mb-0">Cant. Ingresa</label>
+                {{ formset.empty_form.cantidad_recibida }}
+            </div>
+            <div class="col-md-3">
+                <label class="text-muted small fw-bold mb-0">Marca del Equipo</label>
+                {{ formset.empty_form.marca }}
+            </div>
+            <div class="col-md-3">
+                <label class="text-muted small fw-bold mb-0">Modelo / Serial</label>
+                {{ formset.empty_form.modelo }}
+            </div>
+            <div class="col-md-2">
+                <label class="text-muted small fw-bold mb-0">Condición</label>
+                {{ formset.empty_form.condicion }}
+            </div>
+            <div class="col-md-1 text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove-row" title="Eliminar"><i class="bi bi-trash-fill fs-5"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const addButton = document.getElementById('add-item-btn');
         const container = document.getElementById('formset-container');
-        const totalForms = document.getElementById('id_items_recibidos-TOTAL_FORMS'); 
+        const totalForms = document.getElementById('id_items-TOTAL_FORMS'); 
         const emptyFormTemplate = document.getElementById('empty-form').innerHTML;
 
+        // ACTIVAR SELECT2 PARA BÚSQUEDA INTELIGENTE
+        function applySelect2() {
+            $('select').select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Buscar / Seleccionar opción...',
+                language: { noResults: function() { return "Sin coincidencias en la BD"; } }
+            });
+        }
+
+        applySelect2();
+
+        // CLONAR NUEVO RENGLÓN
         addButton.addEventListener('click', function(e) {
             e.preventDefault();
             const formCount = parseInt(totalForms.value);
             const newRow = emptyFormTemplate.replace(/__prefix__/g, formCount);
             container.insertAdjacentHTML('beforeend', newRow);
             totalForms.value = formCount + 1;
+            
+            applySelect2();
+            container.scrollTop = container.scrollHeight;
+        });
+
+        // ELIMINAR RENGLÓN (Papelera)
+        container.addEventListener('click', function(e) {
+            const trashBtn = e.target.closest('.btn-remove-row');
+            if (trashBtn) {
+                e.preventDefault();
+                const card = trashBtn.closest('.item-card');
+                
+                const deleteInput = card.querySelector('input[name$="-DELETE"]');
+                if(deleteInput) {
+                    deleteInput.checked = true; 
+                    card.style.display = 'none'; 
+                } else {
+                    card.remove(); 
+                }
+            }
         });
     });
 </script>

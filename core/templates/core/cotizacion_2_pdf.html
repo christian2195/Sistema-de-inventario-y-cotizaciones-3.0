@@ -5,32 +5,27 @@
     <style>
         @page {
             size: letter portrait;
-            margin: 1.0cm 1.5cm 2cm 1.5cm; /* Margen superior un poco más ajustado para el banner */
+            margin: 1.0cm 1.5cm 2cm 1.5cm;
         }
         body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #000; line-height: 1.3; }
-        
-        /* CAJA DEL CLIENTE */
         .cliente-box { width: 100%; border: 1px solid #000; padding: 8px; margin-bottom: 15px; font-size: 11px; }
         .doc-title { text-align: center; font-size: 16px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px; text-decoration: underline; }
         
-        /* TABLAS Y SECCIONES */
+        /* TABLAS Y SUB-TOTALES */
         .seccion-title { font-weight: bold; background-color: #e2e8f0; padding: 4px; margin-top: 15px; border: 1px solid #000; border-bottom: none; font-size: 10px; text-transform: uppercase;}
-        .items-table { width: 100%; border-collapse: collapse; margin-top: 0; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 5px; }
         .items-table th { background-color: #1e293b; color: #fff; font-size: 10px; padding: 5px; border: 1px solid #000; text-align: center; }
         .items-table td { padding: 5px; border: 1px solid #000; font-size: 10px; text-align: center; vertical-align: middle; }
         .items-table td.desc { text-align: left; }
+        .fila-subtotal { background-color: #f8fafc; font-weight: bold; }
         
-        /* ÁREA DE FIRMAS Y TOTALES */
-        .totals-wrapper { width: 100%; margin-top: 30px; page-break-inside: avoid; }
+        .totals-wrapper { width: 100%; margin-top: 20px; page-break-inside: avoid; }
         .firmas { text-align: center; font-weight: bold; font-size: 11px; }
         .totales-table { width: 100%; border-collapse: collapse; }
         .totales-table td { padding: 6px; border: 1px solid #000; font-size: 11px; }
         .totales-table td.label { font-weight: bold; text-align: right; background-color: #f8fafc; }
         .totales-table td.value { text-align: right; font-weight: bold; }
-        
-        /* FOOTER Y CUENTAS BANCARIAS */
-        .footer-info { margin-top: 30px; font-size: 10px; text-align: justify; page-break-inside: avoid; }
-        .footer-info b { font-size: 11px; }
+        .footer-info { margin-top: 25px; font-size: 10px; text-align: justify; page-break-inside: avoid; }
     </style>
 </head>
 <body>
@@ -55,12 +50,10 @@
         </tr>
     </table>
 
-<div class="doc-title">COTIZACIÓN</div>
+    <div class="doc-title">COTIZACIÓN</div>
 
-    {% regroup items_ordenados by seccion_departamento as secciones %}
-
-    {% for seccion in secciones %}
-        <div class="seccion-title">{{ seccion.grouper|default:"GENERAL" }}</div>
+    {% for grupo in items_agrupados %}
+        <div class="seccion-title">{{ grupo.seccion|default:"GENERAL" }}</div>
         <table class="items-table">
             <thead>
                 <tr>
@@ -73,7 +66,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for item in seccion.list %}
+                {% for item in grupo.items %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td class="desc">[{{ item.producto.codigo_sku }}] {{ item.producto.nombre }}</td>
@@ -83,6 +76,11 @@
                     <td style="font-weight: bold;">${{ item.total_item_usd|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
+                
+                <tr class="fila-subtotal">
+                    <td colspan="5" style="text-align: right;">Subtotal {{ grupo.seccion|default:"GENERAL" }} ($):</td>
+                    <td>${{ grupo.subtotal_seccion|floatformat:2 }}</td>
+                </tr>
             </tbody>
         </table>
     {% endfor %}
@@ -99,7 +97,6 @@
                 </div>
             </td>
             <td style="width: 10%;"></td>
-            
             <td style="width: 40%; vertical-align: bottom;">
                 <table class="totales-table">
                     <tr>
@@ -125,8 +122,8 @@
         A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. RIF G-20010522-4<br><br>
         <b>CONSIDERACIONES PARA LA VENTA:</b><br>
         - RIF del Cliente y Cédula de Identidad.<br>
-        - Este presupuesto tiene una validez de CINCO (05) días continuos, luego de transcurrido el tiempo estipulado, no se garantiza el apartado de los productos.<br>
-        - Es importante señalar que la entrega de los productos se realizará una vez verificado el pago en la cuenta bancaria de la institución.
+        - Este presupuesto tiene una validez de CINCO (05) días continuos.<br>
+        - La entrega de los productos se realizará una vez verificado el pago en la cuenta bancaria de la institución.
     </div>
 
 </body>

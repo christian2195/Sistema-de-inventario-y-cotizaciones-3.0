@@ -1,23 +1,70 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Producto, Cotizacion, ItemCotizacion, NotaDespacho, ItemDespacho, ActaRecepcion, MovimientoInventario
+from .models import (
+    Producto, Cotizacion, ItemCotizacion,
+    NotaDespacho, ItemDespacho, ActaRecepcion, MovimientoInventario,
+    NotaDevolucion, ItemDevolucion, Cliente, Proveedor, Almacen
+)
 
 # ==============================================================================
-# 1. FORMULARIOS DE PRODUCTOS Y ALMACÉN BASE
+# FORMULARIOS AUXILIARES DE CREACIÓN RÁPIDA (usados en vistas)
+# ==============================================================================
+class ClienteForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = ['nombre', 'rif_nit', 'telefono', 'email', 'direccion']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'rif_nit': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class ProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['nombre', 'rif_nit', 'telefono', 'email', 'direccion']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'rif_nit': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class AlmacenForm(forms.ModelForm):
+    class Meta:
+        model = Almacen
+        fields = ['nombre', 'ubicacion']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'ubicacion': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+# ==============================================================================
+# 1. FORMULARIOS DE PRODUCTOS
 # ==============================================================================
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
-        fields = ['codigo_sku', 'nombre', 'descripcion', 'stock_actual', 'costo_compra', 'precio_venta', 'activo']
+        fields = ['codigo_sku', 'nombre', 'descripcion', 'stock_actual',
+                  'costo_compra', 'precio_venta', 'activo']
         widgets = {
             'codigo_sku': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'stock_actual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'costo_compra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
-            'precio_venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'costo_compra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01',
+                                                     'placeholder': '0.00'}),
+            'precio_venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01',
+                                                     'placeholder': '0.00'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
 
 # ==============================================================================
 # 2. PILAR DE COTIZACIONES (MATRIZ DE COSTOS MULTIDIVISA)
@@ -25,21 +72,27 @@ class ProductoForm(forms.ModelForm):
 class CotizacionForm(forms.ModelForm):
     class Meta:
         model = Cotizacion
-        fields = ['cliente', 'referencia_proyecto', 'tasa_bcv', 'observacion_tasa', 'incluye_iva', 'observaciones', 'estatus']
+        # Se mantiene 'estatus' para anulaciones manuales; si no se usa, se puede eliminar.
+        fields = ['cliente', 'referencia_proyecto', 'tasa_bcv', 'observacion_tasa',
+                  'incluye_iva', 'observaciones', 'estatus', 'formato_pdf']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select select2'}),
-            'referencia_proyecto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: HOSPITAL MILITAR'}),
+            'referencia_proyecto': forms.TextInput(attrs={'class': 'form-control',
+                                                          'placeholder': 'Ej: HOSPITAL MILITAR'}),
             'tasa_bcv': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
             'observacion_tasa': forms.TextInput(attrs={'class': 'form-control'}),
             'incluye_iva': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'estatus': forms.Select(attrs={'class': 'form-select'}),
+            'formato_pdf': forms.Select(attrs={'class': 'form-select'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
 
 class ItemCotizacionForm(forms.ModelForm):
     class Meta:
         model = ItemCotizacion
-        fields = ['seccion_departamento', 'producto', 'cantidad_solicitada', 'costo_base_usd', 'factor_margen', 'observacion_item']
+        fields = ['seccion_departamento', 'producto', 'cantidad_solicitada',
+                  'costo_base_usd', 'factor_margen', 'observacion_item']
         widgets = {
             'seccion_departamento': forms.TextInput(attrs={'class': 'form-control'}),
             'producto': forms.Select(attrs={'class': 'form-select select2'}),
@@ -49,11 +102,17 @@ class ItemCotizacionForm(forms.ModelForm):
             'observacion_item': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
-ItemCotizacionFormSet = inlineformset_factory(Cotizacion, ItemCotizacion, form=ItemCotizacionForm, extra=1, can_delete=True)
+
+ItemCotizacionFormSet = inlineformset_factory(
+    Cotizacion, ItemCotizacion,
+    form=ItemCotizacionForm,
+    extra=1,
+    can_delete=True
+)
 
 
 # ==============================================================================
-# 3. PILAR DE ENTRADAS (ACTAS DE RECEPCIÓN) - ¡RESTAURADOS!
+# 3. PILAR DE ENTRADAS (ACTAS DE RECEPCIÓN)
 # ==============================================================================
 class ActaRecepcionForm(forms.ModelForm):
     class Meta:
@@ -61,9 +120,10 @@ class ActaRecepcionForm(forms.ModelForm):
         fields = [
             'proveedor', 'almacen', 'numero_factura_proveedor', 'monto_total_factura',
             'institucion', 'nro_orden_asociada', 'ubicacion_almacen', 'estado_mercancia',
-            'nombre_conductor', 'cedula_conductor', 'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo',
-            'beneficiario_autorizado', 'cedula_beneficiario', 'telefono_beneficiario',
-            'fecha_hora_llegada_conductor', 'fecha_hora_llegada_beneficiario', 'observaciones'
+            'nombre_conductor', 'cedula_conductor', 'tipo_vehiculo', 'color_vehiculo',
+            'placa_vehiculo', 'beneficiario_autorizado', 'cedula_beneficiario',
+            'telefono_beneficiario', 'fecha_hora_llegada_conductor',
+            'fecha_hora_llegada_beneficiario', 'observaciones'
         ]
         widgets = {
             'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
@@ -82,10 +142,15 @@ class ActaRecepcionForm(forms.ModelForm):
             'beneficiario_autorizado': forms.TextInput(attrs={'class': 'form-control'}),
             'cedula_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
             'telefono_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
-            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
+            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
 
 class MovimientoRecepcionForm(forms.ModelForm):
     class Meta:
@@ -98,26 +163,31 @@ class MovimientoRecepcionForm(forms.ModelForm):
             'observacion': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
-# Fábrica que usa la vista crear_acta_recepcion en la línea 132 de views.py
-MovimientoRecepcionFormSet = inlineformset_factory(ActaRecepcion, MovimientoInventario, form=MovimientoRecepcionForm, extra=1, can_delete=True)
+
+MovimientoRecepcionFormSet = inlineformset_factory(
+    ActaRecepcion, MovimientoInventario,
+    form=MovimientoRecepcionForm,
+    extra=1,
+    can_delete=True
+)
 
 
 # ==============================================================================
-# 4. PILAR DE SALIDAS (NOTAS DE DESPACHO CON ALMACÉN POR RENGLÓN)
+# 4. PILAR DE SALIDAS (NOTAS DE DESPACHO)
 # ==============================================================================
 class NotaDespachoForm(forms.ModelForm):
     class Meta:
         model = NotaDespacho
         fields = [
-            'cotizacion', 'numero_guia', 'nombre_beneficiario', 'proveedor_origen', 
-            'nro_orden_asociada', 'nombre_conductor', 'cedula_conductor', 
-            'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo', 'beneficiario_autorizado', 
-            'cedula_beneficiario', 'telefono_beneficiario', 'fecha_hora_llegada_conductor', 
-            'fecha_hora_llegada_beneficiario', 'observaciones'
+            'cotizacion', 'nombre_beneficiario', 'proveedor_origen',
+            'nro_orden_asociada', 'nombre_conductor', 'cedula_conductor',
+            'tipo_vehiculo', 'color_vehiculo', 'placa_vehiculo',
+            'beneficiario_autorizado', 'cedula_beneficiario', 'telefono_beneficiario',
+            'fecha_hora_llegada_conductor', 'fecha_hora_llegada_beneficiario',
+            'observaciones'
         ]
         widgets = {
             'cotizacion': forms.Select(attrs={'class': 'form-select select2'}),
-            'numero_guia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: D-0000001'}),
             'nombre_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
             'proveedor_origen': forms.TextInput(attrs={'class': 'form-control'}),
             'nro_orden_asociada': forms.TextInput(attrs={'class': 'form-control'}),
@@ -129,10 +199,15 @@ class NotaDespachoForm(forms.ModelForm):
             'beneficiario_autorizado': forms.TextInput(attrs={'class': 'form-control'}),
             'cedula_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
             'telefono_beneficiario': forms.TextInput(attrs={'class': 'form-control'}),
-            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'fecha_hora_llegada_conductor': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
+            'fecha_hora_llegada_beneficiario': forms.DateTimeInput(attrs={
+                'class': 'form-control', 'type': 'datetime-local'
+            }),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
 
 class ItemDespachoForm(forms.ModelForm):
     class Meta:
@@ -146,4 +221,54 @@ class ItemDespachoForm(forms.ModelForm):
             'cantidad_despachada': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
-ItemDespachoFormSet = inlineformset_factory(NotaDespacho, ItemDespacho, form=ItemDespachoForm, extra=1, can_delete=True)
+
+ItemDespachoFormSet = inlineformset_factory(
+    NotaDespacho, ItemDespacho,
+    form=ItemDespachoForm,
+    extra=1,
+    can_delete=True
+)
+
+
+# ==============================================================================
+# 5. PILAR DE DEVOLUCIONES (LOGÍSTICA INVERSA A PROVEEDORES)
+# ==============================================================================
+class NotaDevolucionForm(forms.ModelForm):
+    class Meta:
+        model = NotaDevolucion
+        # Se incluyen todos los campos relevantes para el acto de devolución
+        fields = [
+            'proveedor', 'origen_devolucion', 'motivo_devolucion',
+            'observaciones', 'nombre_conductor', 'cedula_conductor',
+            'placa_vehiculo'
+        ]
+        widgets = {
+            'proveedor': forms.Select(attrs={'class': 'form-select select2'}),
+            'origen_devolucion': forms.TextInput(attrs={'class': 'form-control'}),
+            'motivo_devolucion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'nombre_conductor': forms.TextInput(attrs={'class': 'form-control'}),
+            'cedula_conductor': forms.TextInput(attrs={'class': 'form-control'}),
+            'placa_vehiculo': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+class NotaDevolucionItemForm(forms.ModelForm):
+    class Meta:
+        model = ItemDevolucion
+        fields = ['producto', 'almacen_destino', 'cantidad_devuelta', 'estado_fisico', 'motivo']
+        widgets = {
+            'producto': forms.Select(attrs={'class': 'form-select select2'}),
+            'almacen_destino': forms.Select(attrs={'class': 'form-select'}),
+            'cantidad_devuelta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'estado_fisico': forms.Select(attrs={'class': 'form-select'}),
+            'motivo': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+NotaDevolucionItemFormSet = inlineformset_factory(
+    NotaDevolucion, ItemDevolucion,
+    form=NotaDevolucionItemForm,
+    extra=1,
+    can_delete=True
+)

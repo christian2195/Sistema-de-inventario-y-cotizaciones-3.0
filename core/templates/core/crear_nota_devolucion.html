@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}EMVEPRO POS | Despacho Logístico{% endblock %}
+{% block title %}EMVEPRO POS | Registro de Devolución{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -15,7 +15,7 @@
         overflow: hidden; 
     }
     
-    /* PANEL IZQUIERDO: CONTROLES LOGÍSTICOS */
+    /* PANEL IZQUIERDO: CONTROLES DE DEVOLUCIÓN */
     .pos-control-pane { 
         width: 32%; 
         min-width: 320px;
@@ -35,7 +35,7 @@
         border: 1px solid #e2e8f0;
     }
 
-    /* PANEL DERECHO: EL TICKET DE SALIDA */
+    /* PANEL DERECHO: TICKET DE RETORNO */
     .pos-ticket-pane { 
         flex-grow: 1;
         background: #fff; 
@@ -63,7 +63,7 @@
         border-radius: 8px; 
         padding: 1rem; 
         margin-bottom: 0.8rem; 
-        border-left: 4px solid #f59e0b; /* Borde naranja/warning para despachos */
+        border-left: 4px solid #ef4444; /* Borde ROJO (Danger) para Devoluciones */
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         transition: all 0.2s ease-in-out;
     }
@@ -89,7 +89,7 @@
 {% endblock %}
 
 {% block content %}
-<form method="POST" id="despacho-form" class="h-100">
+<form method="POST" id="devolucion-form" class="h-100">
     {% csrf_token %}
     {{ formset.management_form }}
     
@@ -98,18 +98,18 @@
         <div class="pos-control-pane">
             
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="fw-bold text-secondary mb-0"><i class="bi bi-truck me-2"></i> Logística</h4>
-                <a href="{% url 'core:estatus_proyectos' %}" class="btn btn-sm btn-outline-danger shadow-sm fw-bold">
+                <h4 class="fw-bold text-secondary mb-0"><i class="bi bi-arrow-counterclockwise me-2"></i> Retorno</h4>
+                <a href="{% url 'core:estatus_proyectos' %}" class="btn btn-sm btn-outline-secondary shadow-sm fw-bold">
                     <i class="bi bi-x-lg"></i> Salir
                 </a>
             </div>
 
-            <button type="button" class="btn btn-warning w-100 py-3 mb-4 shadow fw-bold fs-5 d-flex justify-content-center align-items-center rounded-3 text-dark" id="add-item-btn" style="border: 2px dashed rgba(0,0,0,0.2);">
-                <i class="bi bi-cart-plus-fill me-2 fs-3"></i> AÑADIR RENGLÓN
+            <button type="button" class="btn btn-danger w-100 py-3 mb-4 shadow fw-bold fs-5 d-flex justify-content-center align-items-center rounded-3 text-white" id="add-item-btn" style="border: 2px dashed rgba(255,255,255,0.5);">
+                <i class="bi bi-cart-plus-fill me-2 fs-3"></i> AÑADIR RENGLÓN DEVUELTO
             </button>
 
-            <div class="action-panel mb-4 border-top border-warning border-4">
-                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-person-badge-fill me-1"></i> Control de Transporte</h6>
+            <div class="action-panel mb-4 border-top border-danger border-4">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-exclamation-triangle-fill me-1 text-danger"></i> Datos de la Reversión</h6>
                 <div class="row g-3">
                     <div class="col-12">{{ form|crispy }}</div>
                 </div>
@@ -121,8 +121,8 @@
             
             <div class="ticket-header">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-box-seam me-2 text-warning"></i> Guía de Salida de Almacén</h5>
-                    <span class="badge bg-warning text-dark rounded-pill fw-bold shadow-sm">En Proceso</span>
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-arrow-return-left me-2 text-danger"></i> Acta de Devolución Logística</h5>
+                    <span class="badge bg-danger text-white rounded-pill fw-bold shadow-sm">Reversión en Proceso</span>
                 </div>
             </div>
 
@@ -131,25 +131,25 @@
                 <div class="ticket-row animate__animated animate__fadeInUp item-card">
                     {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
                     <div class="row g-2 align-items-end item-row">
-                        <div class="col-md-12 mb-1">
-                            <label class="text-muted small fw-bold mb-0">Vínculo con Cotización / Solicitud</label>
-                            {{ item_form.item_cotizacion }}
+                        <div class="col-md-5 mb-1">
+                            <label class="text-muted small fw-bold mb-0">Guía de Origen / Producto</label>
+                            {{ item_form.producto }}
                         </div>
                         <div class="col-md-3">
-                            <label class="text-muted small fw-bold mb-0">Almacén Origen</label>
-                            {{ item_form.almacen_origen }}
+                            <label class="text-muted small fw-bold mb-0">Almacén de Reingreso</label>
+                            {{ item_form.almacen_destino }}
                         </div>
                         <div class="col-md-2">
-                            <label class="text-muted small fw-bold mb-0">Cant. Salida</label>
-                            {{ item_form.cantidad_despachada }}
+                            <label class="text-muted small fw-bold mb-0">Cant. Devuelta</label>
+                            {{ item_form.cantidad_devuelta }}
                         </div>
                         <div class="col-md-3">
-                            <label class="text-muted small fw-bold mb-0">Marca del Equipo</label>
-                            {{ item_form.marca }}
+                            <label class="text-muted small fw-bold mb-0">Estado Físico</label>
+                            {{ item_form.estado_fisico }}
                         </div>
-                        <div class="col-md-3">
-                            <label class="text-muted small fw-bold mb-0">Modelo / Serial</label>
-                            {{ item_form.modelo }}
+                        <div class="col-md-5">
+                            <label class="text-muted small fw-bold mb-0">Motivo / Observación del Renglón</label>
+                            {{ item_form.motivo }}
                         </div>
                         <div class="col-md-1 text-center">
                             {% if formset.can_delete %}
@@ -165,14 +165,14 @@
             <div class="ticket-footer shadow-lg">
                 <div class="row align-items-center">
                     <div class="col-md-8 border-end border-secondary pe-4">
-                        <span class="text-warning fw-bold fs-6 d-block mb-1"><i class="bi bi-info-circle me-1"></i> ATENCIÓN OPERATIVA</span>
+                        <span class="text-danger fw-bold fs-6 d-block mb-1"><i class="bi bi-shield-exclamation me-1"></i> IMPACTO EN INVENTARIO</span>
                         <div class="text-light" style="font-size: 0.85rem; font-weight: normal;">
-                            Revise minuciosamente las cantidades y los seriales. Al aprobar esta guía, los productos serán extraídos definitivamente del inventario institucional.
+                            Dependiendo del "Estado Físico" seleccionado, estos renglones retornarán al stock disponible o serán marcados como averiados/mermas en el sistema. Revise con precaución.
                         </div>
                     </div>
                     <div class="col-md-4 ps-4">
-                        <button type="submit" class="btn btn-warning w-100 py-3 fw-bold fs-6 shadow text-dark" style="border-radius: 10px;">
-                            <i class="bi bi-shield-check me-2"></i> EMITIR GUÍA
+                        <button type="submit" class="btn btn-danger w-100 py-3 fw-bold fs-6 shadow text-white" style="border-radius: 10px;">
+                            <i class="bi bi-check2-all me-2"></i> PROCESAR DEVOLUCIÓN
                         </button>
                     </div>
                 </div>
@@ -184,25 +184,25 @@
 <div id="empty-form" style="display: none;">
     <div class="ticket-row animate__animated animate__fadeInRight item-card">
         <div class="row g-2 align-items-end item-row">
-            <div class="col-md-12 mb-1">
-                <label class="text-muted small fw-bold mb-0">Vínculo con Cotización / Solicitud</label>
-                {{ formset.empty_form.item_cotizacion }}
+            <div class="col-md-5 mb-1">
+                <label class="text-muted small fw-bold mb-0">Guía de Origen / Producto</label>
+                {{ formset.empty_form.producto }}
             </div>
             <div class="col-md-3">
-                <label class="text-muted small fw-bold mb-0">Almacén Origen</label>
-                {{ formset.empty_form.almacen_origen }}
+                <label class="text-muted small fw-bold mb-0">Almacén de Reingreso</label>
+                {{ formset.empty_form.almacen_destino }}
             </div>
             <div class="col-md-2">
-                <label class="text-muted small fw-bold mb-0">Cant. Salida</label>
-                {{ formset.empty_form.cantidad_despachada }}
+                <label class="text-muted small fw-bold mb-0">Cant. Devuelta</label>
+                {{ formset.empty_form.cantidad_devuelta }}
             </div>
             <div class="col-md-3">
-                <label class="text-muted small fw-bold mb-0">Marca del Equipo</label>
-                {{ formset.empty_form.marca }}
+                <label class="text-muted small fw-bold mb-0">Estado Físico</label>
+                {{ formset.empty_form.estado_fisico }}
             </div>
-            <div class="col-md-3">
-                <label class="text-muted small fw-bold mb-0">Modelo / Serial</label>
-                {{ formset.empty_form.modelo }}
+            <div class="col-md-5">
+                <label class="text-muted small fw-bold mb-0">Motivo / Observación del Renglón</label>
+                {{ formset.empty_form.motivo }}
             </div>
             <div class="col-md-1 text-center">
                 <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove-row" title="Eliminar"><i class="bi bi-trash-fill fs-5"></i></button>
@@ -225,7 +225,7 @@
             $('select').select2({
                 theme: 'bootstrap-5',
                 width: '100%',
-                placeholder: 'Buscar / Seleccionar opción...',
+                placeholder: 'Buscar / Seleccionar...',
                 language: { noResults: function() { return "Sin coincidencias en la BD"; } }
             });
         }

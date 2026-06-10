@@ -1,0 +1,86 @@
+{% extends 'core/base.html' %}
+
+{% block title %}EMVEPRO | Historial de Cotizaciones{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800 fw-bold"><i class="bi bi-wallet2 text-primary me-2"></i> Cotizaciones y Notas de Entrega</h1>
+            <p class="text-muted small mb-0">Gestión de presupuestos y formatos de facturación para proyectos institucionales.</p>
+        </div>
+        <a href="{% url 'core:crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Nueva Cotización (POS)
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-4">Tracking / Nro</th>
+                            <th>Cliente / Institución</th>
+                            <th>Proyecto / Referencia</th>
+                            <th>Fecha Emisión</th>
+                            <th>Total (USD)</th>
+                            <th>Total (Bs)</th>
+                            <th>Estatus</th>
+                            <th class="text-center pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cot in cotizaciones %}
+                        <tr>
+                            <td class="fw-bold text-primary ps-4">{{ cot.numero_rastreo }}</td>
+                            <td>
+                                <span class="fw-medium d-block text-dark">{{ cot.cliente.nombre }}</span>
+                                <small class="text-muted">RIF: {{ cot.cliente.rif_nit }}</small>
+                            </td>
+                            <td><span class="badge bg-light text-secondary border fw-normal">{{ cot.referencia_proyecto|default:"N/A"|upper }}</span></td>
+                            <td class="text-muted">{{ cot.fecha_emision|date:"d/m/Y H:i" }}</td>
+                            <td class="fw-bold text-success">${{ cot.total_usd|floatformat:2 }}</td>
+                            <td class="text-secondary fw-medium">Bs. {{ cot.total_bs|floatformat:2 }}</td>
+                            <td>
+                                {% if cot.estatus == 'PENDIENTE' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i> Pendiente</span>
+                                {% elif cot.estatus == 'EN_PROCESO' %}
+                                    <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i> En Proceso</span>
+                                {% elif cot.estatus == 'DOTADO' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i> Dotado</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-slash-circle me-1"></i> Anulado</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'core:generar_pdf_cotizacion' cot.id %}" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir Estándar (Agrupado)">
+                                        <i class="bi bi-file-earmark-pdf"></i>
+                                    </a>
+
+                                    <a href="{% url 'core:generar_pdf_cotizacion_2' cot.id %}" class="btn btn-sm btn-outline-danger" target="_blank" title="Imprimir Formato 2 (Subtotales)">
+                                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                                    </a>
+
+                                    <a href="{% url 'core:editar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-secondary" title="Editar Renglones / Configuración">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-folder-x display-4 d-block mb-3"></i>
+                                No se encontraron cotizaciones registradas en el sistema.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
