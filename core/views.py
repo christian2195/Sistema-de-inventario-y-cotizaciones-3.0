@@ -10,7 +10,9 @@ from django.db import transaction
 from django.db.models import Sum, Count, F, DecimalField
 from django.db.models.functions import Coalesce
 from django.template.loader import get_template
-
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import user_passes_test
+from .forms import UsuarioForm
 # Renderizado de PDF
 from xhtml2pdf import pisa
 from reportlab.lib.pagesizes import letter
@@ -46,7 +48,11 @@ from .forms import (
 
 @login_required
 def dashboard_principal(request):
-    """Dashboard Corporativo con métricas precisas en USD/Bs."""
+    """Dashboard Corporativo con métricas precisas en USD/Bs y Gráficos Analíticos."""
+    
+    # ==========================================
+    # 1. MÉTRICAS BASE Y CONTADORES
+    # ==========================================
     total_productos = Producto.objects.filter(activo=True).count()
     productos_bajo_stock = Producto.objects.filter(activo=True, stock_actual__lte=0.00).count()
 
@@ -72,6 +78,58 @@ def dashboard_principal(request):
     cotizaciones_recientes = Cotizacion.objects.select_related('cliente').order_by('-fecha_emision')[:5]
     despachos_recientes = NotaDespacho.objects.select_related('cotizacion', 'responsable').order_by('-fecha_despacho')[:5]
 
+    # ==========================================
+    # 2. NUEVAS MÉTRICAS: INVENTARIO Y GRÁFICOS
+    # ==========================================
+    
+    # 2.1 Inventario Total Físico (Suma de todas las cantidades sin decimales)
+    suma_inventario = Producto.objects.aggregate(
+        total=Coalesce(Sum('stock_actual', output_field=DecimalField()), 0, output_field=DecimalField())
+    )['total']
+    
+    # Forzamos la conversión a entero para limpiar la vista en el Dashboard
+    total_articulos_inventario = int(suma_inventario)
+
+    # 2.2 Datos para Gráfico de Proyectos (Dotación % y Monto USD)
+    proyectos_query = Cotizacion.objects.exclude(estatus='ANULADO').prefetch_related('items__despachos')[:10]
+    datos_proyectos_json = []
+    
+    for cot in proyectos_query:
+        items = cot.items.all()
+        total_solicitado = sum(i.cantidad_solicitada for i in items)
+        total_despachado = sum(
+            sum(d.cantidad_despachada for d in i.despachos.all()) for i in items
+        )
+        porcentaje = (total_despachado / total_solicitado * 100) if total_solicitado > 0 else 0
+        
+        datos_proyectos_json.append({
+            'label': cot.numero_rastreo,
+            'porcentaje': round(porcentaje, 2),
+            'monto': float(cot.total_usd)
+        })
+
+    # 2.3 Datos para Gráfico Financiero (Facturado vs Pagado por Proveedor)
+    proveedores = Proveedor.objects.all()[:8]
+    datos_finanzas_json = []
+    
+    for prov in proveedores:
+        facturado = prov.actas_recepcion.aggregate(
+            t=Coalesce(Sum('monto_total_factura', output_field=DecimalField()), 0, output_field=DecimalField())
+        )['t']
+        pagado = prov.pagos.aggregate(
+            t=Coalesce(Sum('monto_pagado', output_field=DecimalField()), 0, output_field=DecimalField())
+        )['t']
+        
+        if facturado > 0 or pagado > 0:
+            datos_finanzas_json.append({
+                'proveedor': prov.nombre[:15], # Truncar nombre si es muy largo
+                'facturado': float(facturado),
+                'pagado': float(pagado)
+            })
+
+    # ==========================================
+    # 3. CONTEXTO PARA LA VISTA
+    # ==========================================
     return render(request, 'core/dashboard.html', {
         'total_productos': total_productos,
         'productos_bajo_stock': productos_bajo_stock,
@@ -85,6 +143,11 @@ def dashboard_principal(request):
         'total_general_usd': total_general_usd,
         'cotizaciones_recientes': cotizaciones_recientes,
         'despachos_recientes': despachos_recientes,
+        
+        # Nuevas variables inyectadas al HTML
+        'total_articulos_inventario': total_articulos_inventario,
+        'datos_proyectos_json': datos_proyectos_json,
+        'datos_finanzas_json': datos_finanzas_json,
     })
 
 @login_required
@@ -144,13 +207,27 @@ def lista_productos(request):
 @login_required
 def crear_producto(request):
     if request.method == 'POST':
-        form = ProductoForm(request.POST)
+        # AGREGAR request.FILES
+        form = ProductoForm(request.POST, request.FILES) 
         if form.is_valid():
             form.save()
             return redirect('core:lista_productos')
     else:
         form = ProductoForm()
     return render(request, 'core/producto_form.html', {'form': form})
+
+@login_required
+def editar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+    if request.method == 'POST':
+        # AGREGAR request.FILES aquí también
+        form = ProductoForm(request.POST, request.FILES, instance=producto)
+        if form.is_valid():
+            form.save()
+            return redirect('core:lista_productos')
+    else:
+        form = ProductoForm(instance=producto)
+    return render(request, 'core/producto_form.html', {'form': form, 'producto': producto})
 
 # ==============================================================================
 # MÓDULO COMERCIAL: COTIZACIONES
@@ -654,3 +731,35 @@ def carga_masiva_productos(request):
             context['errores'].append(f"Error crítico procesando el archivo: {str(e)}")
 
     return render(request, 'core/carga_masiva_form.html', context)
+
+# Restricción de seguridad: Solo usuarios del Staff o Superusuarios
+def es_administrador(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+@user_passes_test(es_administrador)
+def lista_usuarios(默默):
+    usuarios = User.objects.all().order_by('-is_superuser', '-is_staff', 'username')
+    return render(默默, 'core/usuario_list.html', {'usuarios': usuarios})
+
+@user_passes_test(es_administrador)
+def crear_usuario(默默):
+    if 默默.method == 'POST':
+        form = UsuarioForm(默默.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('core:lista_usuarios')
+    else:
+        form = UsuarioForm()
+    return render(默默, 'core/usuario_form.html', {'form': form})
+
+@user_passes_test(es_administrador)
+def editar_usuario(默默, pk):
+    usuario = get_object_or_404(User, pk=pk)
+    if 默默.method == 'POST':
+        form = UsuarioForm(默默.POST, instance=usuario)
+        if form.is_valid():
+            form.save()
+            return redirect('core:lista_usuarios')
+    else:
+        form = UsuarioForm(instance=usuario)
+    return render(默默, 'core/usuario_form.html', {'form': form})

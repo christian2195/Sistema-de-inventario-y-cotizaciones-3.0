@@ -1,130 +1,274 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Dashboard | EMVEPRO{% endblock %}
+{% block title %}Panel de Control | EMVEPRO{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-primary border-bottom pb-2"><i class="bi bi-speedometer2"></i> Dashboard EMVEPRO</h2>
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
 
-<div class="row g-4 mb-4">
-    <div class="col-md-6 col-lg-4">
-        <div class="card h-100 border-start border-success border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Acumulado en Bolívares (Tasa BCV)</h6>
-                <h3 class="text-dark mb-0">Bs. {{ total_general_bs|floatformat:2 }}</h3>
-            </div>
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-transparent p-3 rounded shadow-sm border-start border-4 border-primary bg-body-tertiary">
+        <div>
+            <h2 class="mb-0 text-primary fw-bold">Centro de Operaciones</h2>
+            <small class="text-body-secondary text-uppercase fw-semibold">División de Proyectos</small>
         </div>
-    </div>
-    
-    <div class="col-md-6 col-lg-4">
-        <div class="card h-100 border-start border-info border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Monto Proyectado Operaciones</h6>
-                <h3 class="text-dark mb-0">$ {{ monto_proyectado_usd|floatformat:2 }}</h3>
-            </div>
+        <div class="text-end">
+            <span class="text-body-secondary small d-block">Fecha de Operación</span>
+            <span class="fw-bold text-body fs-5">{% now "d/m/Y" %}</span>
         </div>
     </div>
 
-    <div class="col-md-6 col-lg-4">
-        <div class="card h-100 border-start border-primary border-5 shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-2">Valor Neto en Divisas (USD)</h6>
-                <h3 class="text-dark mb-0">$ {{ total_general_usd|floatformat:2 }}</h3>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl">
+            <div class="card shadow-sm border-0 h-100 bg-info text-white">
+                <div class="card-body">
+                    <p class="mb-1 small text-white-50 fw-bold text-uppercase">Inventario Total</p>
+                    <h3 class="mb-0 fw-bold">{{ total_articulos_inventario|default:"0"|floatformat:0 }} <span class="fs-6 fw-normal">ítems</span></h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl">
+            <div class="card shadow-sm border-0 h-100 bg-primary text-white">
+                <div class="card-body">
+                    <p class="mb-1 small text-white-50 fw-bold text-uppercase">Proyectado (USD)</p>
+                    <h3 class="mb-0 fw-bold">${{ monto_proyectado_usd|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl">
+            <div class="card shadow-sm border-0 h-100 bg-success text-white">
+                <div class="card-body">
+                    <p class="mb-1 small text-white-50 fw-bold text-uppercase">Acumulado (Bs)</p>
+                    <h3 class="mb-0 fw-bold">Bs. {{ total_general_bs|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl">
+            <div class="card shadow-sm border-0 h-100 border-start border-4 border-danger bg-body-tertiary">
+                <div class="card-body">
+                    <p class="mb-1 small text-body-secondary fw-bold text-uppercase">Stock Crítico</p>
+                    <h3 class="mb-0 fw-bold text-danger">{{ productos_bajo_stock }} <span class="fs-6 text-body-secondary fw-normal">ítems</span></h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl">
+            <div class="card shadow-sm border-0 h-100 border-start border-4 border-warning bg-body-tertiary">
+                <div class="card-body">
+                    <p class="mb-1 small text-body-secondary fw-bold text-uppercase">Proyectos Pendientes</p>
+                    <h3 class="mb-0 fw-bold text-warning">{{ cotizaciones_pendientes }} <span class="fs-6 text-body-secondary fw-normal">/ {{ total_cotizaciones }}</span></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 bg-body-tertiary">
+                <div class="card-body d-flex flex-wrap justify-content-between gap-3">
+                    <a href="{% url 'core:crear_cotizacion' %}" class="btn btn-primary flex-fill fw-bold shadow-sm py-2">
+                        <i class="bi bi-receipt me-2"></i> Nueva Cotización (POS)
+                    </a>
+                    <a href="{% url 'core:crear_nota_despacho' %}" class="btn btn-success flex-fill fw-bold shadow-sm py-2">
+                        <i class="bi bi-truck me-2"></i> Registrar Despacho
+                    </a>
+                    <a href="{% url 'core:crear_acta_recepcion' %}" class="btn btn-dark flex-fill fw-bold shadow-sm py-2">
+                        <i class="bi bi-box-arrow-in-down me-2"></i> Recibir Inventario
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 h-100 bg-body-tertiary">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h6 class="fw-bold text-body-secondary mb-0"><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Estatus de Proyectos (Dotación vs USD)</h6>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="chartProyectos"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 h-100 bg-body-tertiary">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h6 class="fw-bold text-body-secondary mb-0"><i class="bi bi-bank me-2 text-success"></i>Estado Financiero por Proveedor (USD)</h6>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="chartFinanzas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 bg-body-tertiary">
+                <div class="card-header bg-transparent border-bottom border-secondary-subtle py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold text-body"><i class="bi bi-clock-history text-primary me-2"></i>Últimas Cotizaciones</h6>
+                    <a href="{% url 'core:lista_cotizaciones' %}" class="btn btn-sm btn-outline-secondary">Ver todas</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="ps-3">Tracking</th>
+                                <th>Cliente</th>
+                                <th class="text-end pe-3">Monto ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cot in cotizaciones_recientes %}
+                            <tr>
+                                <td class="ps-3 fw-bold text-primary">{{ cot.numero_rastreo }}</td>
+                                <td class="text-truncate text-body" style="max-width: 200px;">{{ cot.cliente.nombre }}</td>
+                                <td class="text-end pe-3 fw-bold text-body">${{ cot.total_usd|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center py-3 text-muted">No hay movimientos recientes.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 bg-body-tertiary">
+                <div class="card-header bg-transparent border-bottom border-secondary-subtle py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold text-body"><i class="bi bi-truck text-success me-2"></i>Últimos Despachos</h6>
+                    <button class="btn btn-sm btn-outline-secondary">Ver historial</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="ps-3">Nro Guía</th>
+                                <th>Proyecto / Cotización</th>
+                                <th class="text-end pe-3">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for despacho in despachos_recientes %}
+                            <tr>
+                                <td class="ps-3 fw-bold text-success">{{ despacho.numero_guia }}</td>
+                                <td class="text-body">{{ despacho.cotizacion.numero_rastreo }}</td>
+                                <td class="text-end pe-3 text-body-secondary small">{{ despacho.fecha_despacho|date:"d/m/y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center py-3 text-muted">No hay despachos recientes.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<div class="row g-4 mb-4">
-    <div class="col-md-6 col-lg-3">
-        <div class="card bg-light shadow-sm">
-            <div class="card-body text-center">
-                <h1 class="display-6 fw-bold text-primary">{{ total_cotizaciones }}</h1>
-                <p class="text-muted mb-0"><i class="bi bi-file-earmark-text"></i> Notas de Entrega</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-3">
-        <div class="card bg-light shadow-sm">
-            <div class="card-body text-center">
-                <h1 class="display-6 fw-bold text-success">{{ total_actas_recepcion }}</h1>
-                <p class="text-muted mb-0"><i class="bi bi-box-arrow-in-right"></i> Actas de Recepción</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-3">
-        <div class="card bg-light shadow-sm">
-            <div class="card-body text-center">
-                <h1 class="display-6 fw-bold text-warning">{{ total_notas_despacho }}</h1>
-                <p class="text-muted mb-0"><i class="bi bi-truck"></i> Notas de Despacho</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-3">
-        <div class="card bg-light shadow-sm">
-            <div class="card-body text-center">
-                <h1 class="display-6 fw-bold text-danger">{{ productos_bajo_stock }}</h1>
-                <p class="text-muted mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Productos Alerta</p>
-            </div>
-        </div>
-    </div>
-</div>
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div class="row g-4">
-    <div class="col-lg-7">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold text-secondary"><i class="bi bi-list-check"></i> Últimas Notas de Entrega Generadas</div>
-            <div class="card-body p-0">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Nro. Tracking</th>
-                            <th>Cliente / Ente</th>
-                            <th>Estatus</th>
-                            <th class="text-end">Total Bs.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cot in cotizaciones_recientes %}
-                        <tr>
-                            <td><small class="fw-bold text-primary">{{ cot.numero_rastreo }}</small></td>
-                            <td><small>{{ cot.cliente.nombre }}</small></td>
-                            <td>
-                                <span class="badge {% if cot.estatus == 'DOTADO' %}bg-success{% elif cot.estatus == 'PENDIENTE' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                    {{ cot.get_estatus_display }}
-                                </span>
-                            </td>
-                            <td class="text-end fw-bold"><small>{{ cot.total_bs|floatformat:2 }}</small></td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="4" class="text-center py-3">No hay registros recientes.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+{{ datos_proyectos_json|json_script:"proyectos-data" }}
+{{ datos_finanzas_json|json_script:"finanzas-data" }}
 
-    <div class="col-lg-5">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold text-secondary"><i class="bi bi-clock-history"></i> Despachos de Carga Recientes</div>
-            <div class="card-body p-0">
-                <table class="table table-hover align-middle mb-0">
-                    <tbody class="small">
-                        {% for desp in despachos_recientes %}
-                        <tr class="py-2">
-                            <td class="ps-3">
-                                <i class="bi bi-truck text-warning me-2"></i><b>Guía #{{ desp.numero_guia }}</b><br>
-                                <span class="text-muted">Responsable: {{ desp.responsable.username }}</span>
-                            </td>
-                            <td class="text-end pe-3 text-muted"><small>{{ desp.fecha_despacho|date:'d/m H:i' }}</small></td>
-                        </tr>
-                        {% empty %}
-                        <tr><td class="text-center py-4 text-muted">Sin despachos reportados hoy.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Extraemos los datos de forma segura
+        const dataProyectos = JSON.parse(document.getElementById('proyectos-data').textContent);
+        const dataFinanzas = JSON.parse(document.getElementById('finanzas-data').textContent);
+
+        // --- 1. GRÁFICO DE PROYECTOS ---
+        const ctxProyectos = document.getElementById('chartProyectos').getContext('2d');
+        new Chart(ctxProyectos, {
+            type: 'bar',
+            data: {
+                labels: dataProyectos.map(d => d.label),
+                datasets: [
+                    {
+                        label: 'Dotación Logística (%)',
+                        data: dataProyectos.map(d => d.porcentaje),
+                        backgroundColor: 'rgba(13, 110, 253, 0.8)',
+                        borderRadius: 4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Presupuesto Quoted ($)',
+                        data: dataProyectos.map(d => d.monto),
+                        type: 'line',
+                        borderColor: '#ffc107',
+                        backgroundColor: '#ffc107',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: { 
+                        type: 'linear', 
+                        display: true, 
+                        position: 'left',
+                        beginAtZero: true, 
+                        max: 100, 
+                        title: { display: true, text: 'Porcentaje Completado %' } 
+                    },
+                    y1: { 
+                        type: 'linear', 
+                        display: true, 
+                        position: 'right',
+                        beginAtZero: true, 
+                        title: { display: true, text: 'Monto en USD $' },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+
+        // --- 2. GRÁFICO FINANCIERO (PROVEEDORES) ---
+        const ctxFinanzas = document.getElementById('chartFinanzas').getContext('2d');
+        new Chart(ctxFinanzas, {
+            type: 'bar',
+            data: {
+                labels: dataFinanzas.map(d => d.proveedor),
+                datasets: [
+                    {
+                        label: 'Total Facturado ($)',
+                        data: dataFinanzas.map(d => d.facturado),
+                        backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Total Pagado ($)',
+                        data: dataFinanzas.map(d => d.pagado),
+                        backgroundColor: 'rgba(220, 53, 69, 0.8)',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        title: { display: true, text: 'Monto en USD $' }
+                    } 
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Gestión de Usuario | EMVEPRO{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animate__animated animate__fadeIn">
+    <div class="col-md-8">
+        <div class="card shadow border-0 border-top border-primary border-4 mt-4">
+            
+            <div class="card-header bg-transparent py-3 border-bottom-0">
+                <h4 class="mb-0 text-primary fw-bold">
+                    <i class="bi bi-person-lines-fill me-2"></i> {% if form.instance.pk %}Editar Usuario{% else %}Registrar Nuevo Usuario{% endif %}
+                </h4>
+            </div>
+            
+            <div class="card-body bg-body-tertiary p-4 rounded-bottom">
+                <p class="text-muted small mb-4">
+                    Complete la información credencial y asigne los permisos operativos necesarios para que este usuario pueda operar los módulos de inventario y facturación.
+                </p>
+                
+                <form method="POST" id="usuario-form">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">{{ form.username|as_crispy_field }}</div>
+                        <div class="col-md-6">{{ form.email|as_crispy_field }}</div>
+                        
+                        <div class="col-md-6">{{ form.first_name|as_crispy_field }}</div>
+                        <div class="col-md-6">{{ form.last_name|as_crispy_field }}</div>
+                        
+                        {% if form.password %}
+                            <div class="col-12 border-top pt-3 mt-3">
+                                <h6 class="text-body-secondary fw-bold mb-3"><i class="bi bi-key-fill me-1"></i> Credenciales de Acceso</h6>
+                                {{ form.password|as_crispy_field }}
+                            </div>
+                        {% endif %}
+
+                        <div class="col-12 border-top pt-3 mt-3">
+                            <h6 class="text-body-secondary fw-bold mb-3"><i class="bi bi-shield-check me-1"></i> Niveles de Autorización</h6>
+                            <div class="bg-body p-3 rounded border shadow-sm">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        {{ form.is_active|as_crispy_field }}
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Desmarque para suspender el acceso a la plataforma.</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        {{ form.is_staff|as_crispy_field }}
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Permite acceso a los paneles administrativos del sistema.</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        {{ form.is_superuser|as_crispy_field }}
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Otorga privilegios absolutos. Úselo con extrema precaución.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-top text-end">
+                        <a href="{% url 'core:lista_usuarios' %}" class="btn btn-secondary me-2 px-3 shadow-sm">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                            <i class="bi bi-save-fill me-1"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Asegurar que las clases de Bootstrap se inyecten correctamente en todos los inputs
+        document.querySelectorAll('#usuario-form input[type="text"], #usuario-form input[type="email"], #usuario-form input[type="password"]').forEach(el => {
+            el.classList.add('form-control');
+        });
+        document.querySelectorAll('#usuario-form input[type="checkbox"]').forEach(el => {
+            el.classList.add('form-check-input');
+        });
+    });
+</script>
+{% endblock %}

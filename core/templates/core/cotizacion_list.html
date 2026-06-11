@@ -4,20 +4,38 @@
 
 {% block content %}
 <div class="container-fluid py-4 animate__animated animate__fadeIn">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-transparent p-3 rounded border shadow-sm bg-body-tertiary">
         <div>
-            <h1 class="h3 mb-0 text-gray-800 fw-bold"><i class="bi bi-wallet2 text-primary me-2"></i> Cotizaciones y Notas de Entrega</h1>
-            <p class="text-muted small mb-0">Gestión de presupuestos y formatos de facturación para proyectos institucionales.</p>
+            <h3 class="mb-0 text-primary fw-bold">
+                <i class="bi bi-wallet2 me-2"></i> Cotizaciones y Notas de Entrega
+            </h3>
+            <small class="text-muted">Gestión de presupuestos y formatos de facturación para proyectos institucionales.</small>
         </div>
         <a href="{% url 'core:crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm">
             <i class="bi bi-plus-lg me-1"></i> Nueva Cotización (POS)
         </a>
     </div>
 
-    <div class="card shadow-sm border-0 rounded-3">
+    <div class="card shadow-sm border-0 mb-4 rounded-3">
+        <div class="card-body bg-body-tertiary p-3">
+            <div class="input-group">
+                <span class="input-group-text bg-body border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-cotizacion" class="form-control bg-body border-start-0" placeholder="Buscar por Tracking, Cliente, RIF o Referencia de Proyecto...">
+                <button class="btn btn-outline-secondary" type="button" id="limpiar-busqueda">
+                    <i class="bi bi-x-circle-fill"></i> Limpiar
+                </button>
+            </div>
+            <div id="conteo-resultados" class="form-text text-muted mt-2 ps-1 small" style="display: none;">
+                Se encontraron <span id="num-filas" class="fw-bold text-primary">0</span> cotizaciones coincidentes.
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0 rounded-3">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0" id="tabla-cotizaciones">
                     <thead class="table-dark">
                         <tr>
                             <th class="ps-4">Tracking / Nro</th>
@@ -32,13 +50,15 @@
                     </thead>
                     <tbody>
                         {% for cot in cotizaciones %}
-                        <tr>
-                            <td class="fw-bold text-primary ps-4">{{ cot.numero_rastreo }}</td>
-                            <td>
-                                <span class="fw-medium d-block text-dark">{{ cot.cliente.nombre }}</span>
+                        <tr class="fila-cotizacion">
+                            <td class="fw-bold text-primary ps-4 col-tracking">{{ cot.numero_rastreo }}</td>
+                            <td class="col-cliente">
+                                <span class="fw-medium d-block text-body">{{ cot.cliente.nombre }}</span>
                                 <small class="text-muted">RIF: {{ cot.cliente.rif_nit }}</small>
                             </td>
-                            <td><span class="badge bg-light text-secondary border fw-normal">{{ cot.referencia_proyecto|default:"N/A"|upper }}</span></td>
+                            <td class="col-proyecto">
+                                <span class="badge bg-body-secondary text-body border fw-normal">{{ cot.referencia_proyecto|default:"N/A"|upper }}</span>
+                            </td>
                             <td class="text-muted">{{ cot.fecha_emision|date:"d/m/Y H:i" }}</td>
                             <td class="fw-bold text-success">${{ cot.total_usd|floatformat:2 }}</td>
                             <td class="text-secondary fw-medium">Bs. {{ cot.total_bs|floatformat:2 }}</td>
@@ -54,15 +74,13 @@
                                 {% endif %}
                             </td>
                             <td class="text-center pe-4">
-                                <div class="btn-group" role="group">
+                                <div class="btn-group shadow-sm" role="group">
                                     <a href="{% url 'core:generar_pdf_cotizacion' cot.id %}" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir Estándar (Agrupado)">
                                         <i class="bi bi-file-earmark-pdf"></i>
                                     </a>
-
                                     <a href="{% url 'core:generar_pdf_cotizacion_2' cot.id %}" class="btn btn-sm btn-outline-danger" target="_blank" title="Imprimir Formato 2 (Subtotales)">
                                         <i class="bi bi-file-earmark-pdf-fill"></i>
                                     </a>
-
                                     <a href="{% url 'core:editar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-secondary" title="Editar Renglones / Configuración">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
@@ -70,17 +88,79 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr>
+                        <tr id="fila-vacia-original">
                             <td colspan="8" class="text-center py-5 text-muted">
-                                <i class="bi bi-folder-x display-4 d-block mb-3"></i>
-                                No se encontraron cotizaciones registradas en el sistema.
+                                <i class="bi bi-folder-x display-4 d-block mb-3 text-warning"></i>
+                                <h5>No se encontraron cotizaciones registradas.</h5>
+                                <small>Utilice el botón superior para crear un nuevo presupuesto.</small>
                             </td>
                         </tr>
                         {% endfor %}
+                        
+                        <tr id="fila-no-resultados" style="display: none;">
+                            <td colspan="8" class="text-center p-5 text-muted">
+                                <i class="bi bi-search display-3 d-block mb-3 text-danger"></i>
+                                <h5>No se encontraron cotizaciones con ese criterio.</h5>
+                                <small>Prueba buscando con otro número de tracking o nombre de cliente.</small>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputBuscador = document.getElementById('buscador-cotizacion');
+        const btnLimpiar = document.getElementById('limpiar-busqueda');
+        const conteoInfo = document.getElementById('conteo-resultados');
+        const txtNumFilas = document.getElementById('num-filas');
+        const filas = document.querySelectorAll('.fila-cotizacion');
+        const filaNoResultados = document.getElementById('fila-no-resultados');
+
+        inputBuscador.addEventListener('input', function() {
+            const consulta = this.value.toLowerCase().trim();
+            let visibles = 0;
+
+            if (consulta === "") {
+                filas.forEach(f => f.style.display = "");
+                filaNoResultados.style.display = "none";
+                conteoInfo.style.display = "none";
+                return;
+            }
+
+            filas.forEach(fila => {
+                const tracking = fila.querySelector('.col-tracking').textContent.toLowerCase();
+                const cliente = fila.querySelector('.col-cliente').textContent.toLowerCase();
+                const proyecto = fila.querySelector('.col-proyecto').textContent.toLowerCase();
+
+                if (tracking.includes(consulta) || cliente.includes(consulta) || proyecto.includes(consulta)) {
+                    fila.style.display = "";
+                    visibles++;
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+
+            txtNumFilas.textContent = visibles;
+            conteoInfo.style.display = "block";
+
+            if (visibles === 0) {
+                filaNoResultados.style.display = "";
+            } else {
+                filaNoResultados.style.display = "none";
+            }
+        });
+
+        btnLimpiar.addEventListener('click', function() {
+            inputBuscador.value = "";
+            filas.forEach(f => f.style.display = "");
+            filaNoResultados.style.display = "none";
+            conteoInfo.style.display = "none";
+            inputBuscador.focus();
+        });
+    });
+</script>
 {% endblock %}

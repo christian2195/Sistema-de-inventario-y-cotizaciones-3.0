@@ -73,6 +73,7 @@ class Producto(models.Model):
         unique=True,
         verbose_name="Código/SKU"
     )
+    imagen = models.ImageField(upload_to='productos/', null=True, blank=True, verbose_name="Imagen Referencial")
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, default='')
     stock_actual = models.DecimalField(

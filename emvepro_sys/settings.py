@@ -138,3 +138,6 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # Configuración de Autenticación
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

@@ -1,0 +1,160 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Gestión de Usuarios | EMVEPRO{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate__animated animate__fadeIn py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-transparent p-3 rounded border shadow-sm bg-body-tertiary">
+        <div>
+            <h3 class="text-primary fw-bold mb-0">
+                <i class="bi bi-people-fill me-2"></i> Gestión de Usuarios y Accesos
+            </h3>
+            <small class="text-muted">Administración de cuentas operativas, roles y permisos del sistema.</small>
+        </div>
+        <a href="{% url 'core:crear_usuario' %}" class="btn btn-primary shadow-sm fw-bold">
+            <i class="bi bi-person-plus-fill me-1"></i> Registrar Nuevo Usuario
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 rounded-3">
+        <div class="card-body bg-body-tertiary p-3">
+            <div class="input-group">
+                <span class="input-group-text bg-body border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-usuario" class="form-control bg-body border-start-0" placeholder="Buscar por Nombre de Usuario, Nombre Real o Correo Electrónico...">
+                <button class="btn btn-outline-secondary" type="button" id="limpiar-busqueda">
+                    <i class="bi bi-x-circle-fill"></i> Limpiar
+                </button>
+            </div>
+            <div id="conteo-resultados" class="form-text text-muted mt-2 ps-1 small" style="display: none;">
+                Se encontraron <span id="num-filas" class="fw-bold text-primary">0</span> usuarios coincidentes.
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0 rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tabla-usuarios">
+                    <thead class="table-dark text-uppercase small tracking-wider">
+                        <tr>
+                            <th class="ps-4">Usuario (Username)</th>
+                            <th>Nombre Completo</th>
+                            <th>Correo Electrónico</th>
+                            <th>Nivel de Acceso (Rol)</th>
+                            <th>Estado</th>
+                            <th class="text-center pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr class="fila-usuario">
+                            <td class="ps-4 col-username">
+                                <span class="fw-bold text-body">@{{ usuario.username }}</span>
+                            </td>
+                            <td class="col-nombre text-body-secondary fw-medium">
+                                {{ usuario.first_name }} {{ usuario.last_name }}
+                                {% if not usuario.first_name and not usuario.last_name %}
+                                    <span class="text-muted fst-italic">No especificado</span>
+                                {% endif %}
+                            </td>
+                            <td class="col-email text-body-secondary">
+                                {{ usuario.email|default:"<span class='text-muted fst-italic'>Sin correo</span>"|safe }}
+                            </td>
+                            <td>
+                                {% if usuario.is_superuser %}
+                                    <span class="badge bg-danger shadow-sm"><i class="bi bi-shield-lock-fill me-1"></i> Superusuario</span>
+                                {% elif usuario.is_staff %}
+                                    <span class="badge bg-primary shadow-sm"><i class="bi bi-person-badge-fill me-1"></i> Staff / Admin</span>
+                                {% else %}
+                                    <span class="badge bg-secondary shadow-sm"><i class="bi bi-person-workspace me-1"></i> Operador</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if usuario.is_active %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-slash-circle-fill me-1"></i> Suspendido</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <a href="{% url 'core:editar_usuario' usuario.id %}" class="btn btn-sm btn-outline-secondary shadow-sm" title="Editar Permisos">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="fila-vacia-original">
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-people display-6 d-block mb-3 text-secondary"></i>
+                                <h5>No se encontraron usuarios registrados.</h5>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <tr id="fila-no-resultados" style="display: none;">
+                            <td colspan="6" class="text-center p-5 text-muted">
+                                <i class="bi bi-search display-3 d-block mb-3 text-danger"></i>
+                                <h5>No se encontraron usuarios con ese criterio.</h5>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputBuscador = document.getElementById('buscador-usuario');
+        const btnLimpiar = document.getElementById('limpiar-busqueda');
+        const conteoInfo = document.getElementById('conteo-resultados');
+        const txtNumFilas = document.getElementById('num-filas');
+        const filas = document.querySelectorAll('.fila-usuario');
+        const filaNoResultados = document.getElementById('fila-no-resultados');
+
+        inputBuscador.addEventListener('input', function() {
+            const consulta = this.value.toLowerCase().trim();
+            let visibles = 0;
+
+            if (consulta === "") {
+                filas.forEach(f => f.style.display = "");
+                filaNoResultados.style.display = "none";
+                conteoInfo.style.display = "none";
+                return;
+            }
+
+            filas.forEach(fila => {
+                const username = fila.querySelector('.col-username').textContent.toLowerCase();
+                const nombre = fila.querySelector('.col-nombre').textContent.toLowerCase();
+                const email = fila.querySelector('.col-email').textContent.toLowerCase();
+
+                if (username.includes(consulta) || nombre.includes(consulta) || email.includes(consulta)) {
+                    fila.style.display = "";
+                    visibles++;
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+
+            txtNumFilas.textContent = visibles;
+            conteoInfo.style.display = "block";
+
+            if (visibles === 0) {
+                filaNoResultados.style.display = "";
+            } else {
+                filaNoResultados.style.display = "none";
+            }
+        });
+
+        btnLimpiar.addEventListener('click', function() {
+            inputBuscador.value = "";
+            filas.forEach(f => f.style.display = "");
+            filaNoResultados.style.display = "none";
+            conteoInfo.style.display = "none";
+            inputBuscador.focus();
+        });
+    });
+</script>
+{% endblock %}

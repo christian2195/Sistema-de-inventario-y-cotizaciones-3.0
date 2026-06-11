@@ -3,26 +3,40 @@
 {% block title %}Estatus de Proyectos | EMVEPRO{% endblock %}
 
 {% block content %}
-<div class="container-fluid animate__animated animate__fadeIn">
-    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-primary fw-bold mb-0">
-            <i class="bi bi-clipboard-data-fill me-2"></i> Monitoreo y Estatus de Proyectos
-        </h2>
+<div class="container-fluid animate__animated animate__fadeIn py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-transparent p-3 rounded border shadow-sm bg-body-tertiary">
+        <div>
+            <h3 class="text-primary fw-bold mb-0">
+                <i class="bi bi-clipboard-data-fill me-2"></i> Monitoreo y Estatus de Proyectos
+            </h3>
+            <small class="text-muted">Ordenación de entregas y avance físico en almacén por Ente Beneficiario.</small>
+        </div>
         <a href="{% url 'core:crear_cotizacion' %}" class="btn btn-primary shadow-sm fw-bold">
             <i class="bi bi-file-earmark-plus me-1"></i> Nueva Nota de Entrega
         </a>
     </div>
 
-    <div class="card shadow border-0">
-        <div class="card-header bg-dark text-white py-3">
-            <h5 class="mb-0 small text-uppercase tracking-wider fw-bold">
-                <i class="bi bi-table me-2"></i> Ordenación de Entregas por Ente Beneficiario
-            </h5>
+    <div class="card shadow-sm border-0 mb-4 rounded-3">
+        <div class="card-body bg-body-tertiary p-3">
+            <div class="input-group">
+                <span class="input-group-text bg-body border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-proyecto" class="form-control bg-body border-start-0" placeholder="Buscar por Nro de Tracking o Institución / Ente Solicitante...">
+                <button class="btn btn-outline-secondary" type="button" id="limpiar-busqueda">
+                    <i class="bi bi-x-circle-fill"></i> Limpiar
+                </button>
+            </div>
+            <div id="conteo-resultados" class="form-text text-muted mt-2 ps-1 small" style="display: none;">
+                Se encontraron <span id="num-filas" class="fw-bold text-primary">0</span> proyectos coincidentes.
+            </div>
         </div>
+    </div>
+
+    <div class="card shadow border-0 rounded-3">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-secondary small text-uppercase">
+                <table class="table table-hover align-middle mb-0" id="tabla-proyectos">
+                    <thead class="table-dark text-uppercase small tracking-wider">
                         <tr>
                             <th class="ps-4" style="width: 15%;">Nro. Tracking</th>
                             <th style="width: 30%;">Institución / Ente Solicitante</th>
@@ -33,24 +47,24 @@
                     </thead>
                     <tbody>
                         {% for proyecto in proyectos %}
-                        <tr>
-                            <td class="ps-4">
+                        <tr class="fila-proyecto">
+                            <td class="ps-4 col-tracking">
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1 fs-6">
                                     {{ proyecto.numero_rastreo }}
                                 </span>
                             </td>
-                            <td>
-                                <div class="fw-bold text-dark">{{ proyecto.cliente }}</div>
+                            <td class="col-cliente">
+                                <div class="fw-bold text-body">{{ proyecto.cliente }}</div>
                                 <small class="text-muted font-monospace small">ID Referencial: #{{ proyecto.id }}</small>
                             </td>
                             <td>
-                                <span class="badge {% if 'DOTADO' in proyecto.estatus %}bg-success{% elif 'PROCESO' in proyecto.estatus or 'PARCIAL' in proyecto.estatus %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-2 py-1 rounded-pill small">
+                                <span class="badge {% if 'DOTADO' in proyecto.estatus %}bg-success{% elif 'PROCESO' in proyecto.estatus or 'PARCIAL' in proyecto.estatus %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-2 py-1 rounded-pill small shadow-sm">
                                     <i class="bi bi-circle-fill small me-1"></i> {{ proyecto.estatus }}
                                 </span>
                             </td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="progress flex-grow-1 shadow-sm border" style="height: 18px; border-radius: 4px;">
+                                    <div class="progress flex-grow-1 shadow-sm border bg-body-secondary" style="height: 18px; border-radius: 4px;">
                                         <div class="progress-bar {% if proyecto.porcentaje_dotacion == 100.0 %}bg-success{% else %}bg-primary text-white{% endif %} progress-bar-striped progress-bar-animated fw-bold" 
                                              role="progressbar" 
                                              style="width: {{ proyecto.porcentaje_dotacion }}%; font-size: 10px; line-height: 18px;" 
@@ -69,17 +83,77 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr>
+                        <tr id="fila-vacia-original">
                             <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="bi bi-folder-x display-6 d-block mb-3 text-secondary"></i>
-                                No existen proyectos o notas registradas en los históricos del sistema.
+                                <h5>No existen proyectos o notas registradas en los históricos del sistema.</h5>
                             </td>
                         </tr>
                         {% endfor %}
+                        
+                        <tr id="fila-no-resultados" style="display: none;">
+                            <td colspan="5" class="text-center p-5 text-muted">
+                                <i class="bi bi-search display-3 d-block mb-3 text-danger"></i>
+                                <h5>No se encontraron proyectos con ese criterio.</h5>
+                                <small>Prueba buscando con otro número de tracking o nombre de institución.</small>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputBuscador = document.getElementById('buscador-proyecto');
+        const btnLimpiar = document.getElementById('limpiar-busqueda');
+        const conteoInfo = document.getElementById('conteo-resultados');
+        const txtNumFilas = document.getElementById('num-filas');
+        const filas = document.querySelectorAll('.fila-proyecto');
+        const filaNoResultados = document.getElementById('fila-no-resultados');
+
+        inputBuscador.addEventListener('input', function() {
+            const consulta = this.value.toLowerCase().trim();
+            let visibles = 0;
+
+            if (consulta === "") {
+                filas.forEach(f => f.style.display = "");
+                filaNoResultados.style.display = "none";
+                conteoInfo.style.display = "none";
+                return;
+            }
+
+            filas.forEach(fila => {
+                const tracking = fila.querySelector('.col-tracking').textContent.toLowerCase();
+                const cliente = fila.querySelector('.col-cliente').textContent.toLowerCase();
+
+                if (tracking.includes(consulta) || cliente.includes(consulta)) {
+                    fila.style.display = "";
+                    visibles++;
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+
+            txtNumFilas.textContent = visibles;
+            conteoInfo.style.display = "block";
+
+            if (visibles === 0) {
+                filaNoResultados.style.display = "";
+            } else {
+                filaNoResultados.style.display = "none";
+            }
+        });
+
+        btnLimpiar.addEventListener('click', function() {
+            inputBuscador.value = "";
+            filas.forEach(f => f.style.display = "");
+            filaNoResultados.style.display = "none";
+            conteoInfo.style.display = "none";
+            inputBuscador.focus();
+        });
+    });
+</script>
 {% endblock %}

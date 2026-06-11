@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.models import User
 from django.forms import inlineformset_factory
 from .models import (
     Producto, Cotizacion, ItemCotizacion,
@@ -6,6 +7,33 @@ from .models import (
     NotaDevolucion, ItemDevolucion, Cliente, Proveedor, Almacen
 )
 
+class UsuarioForm(forms.ModelForm):
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Contraseña",
+        required=False,
+        help_text="Deje en blanco al editar si no desea cambiar la contraseña actual."
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'is_active', 'is_staff', 'is_superuser']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        password = self.cleaned_data.get("password")
+        if password:
+            user.set_password(password)  # Encripta la contraseña de forma segura
+        if commit:
+            user.save()
+        return user
+        
 # ==============================================================================
 # FORMULARIOS AUXILIARES DE CREACIÓN RÁPIDA (usados en vistas)
 # ==============================================================================
@@ -49,21 +77,56 @@ class AlmacenForm(forms.ModelForm):
 # 1. FORMULARIOS DE PRODUCTOS
 # ==============================================================================
 class ProductoForm(forms.ModelForm):
+    # 1. Sobrescribimos los campos conflictivos declarándolos estrictamente como Enteros
+    stock_actual = forms.IntegerField(
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+        label="Stock actual*"
+    )
+    costo_compra = forms.IntegerField(
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'placeholder': '0'}),
+        label="Costo de Compra (USD)*",
+        required=False
+    )
+    precio_venta = forms.IntegerField(
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'placeholder': '0'}),
+        label="Precio de Venta (USD)*",
+        required=False
+    )
+
     class Meta:
         model = Producto
-        fields = ['codigo_sku', 'nombre', 'descripcion', 'stock_actual',
-                  'costo_compra', 'precio_venta', 'activo']
+        fields = [
+            'codigo_sku', 
+            'nombre', 
+            'almacen', 
+            'costo_compra', 
+            'precio_venta', 
+            'stock_actual', 
+            'imagen', 
+            'descripcion', 
+            'activo'
+        ]
+        # 2. Dejamos en widgets solo los que no sobrescribimos arriba
         widgets = {
             'codigo_sku': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'stock_actual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'costo_compra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01',
-                                                     'placeholder': '0.00'}),
-            'precio_venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01',
-                                                     'placeholder': '0.00'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Interceptamos los datos de la base de datos al editar y los forzamos a enteros
+        if self.instance and self.instance.pk:
+            if self.instance.stock_actual is not None:
+                self.initial['stock_actual'] = int(self.instance.stock_actual)
+                
+            if self.instance.costo_compra is not None:
+                self.initial['costo_compra'] = int(self.instance.costo_compra)
+                
+            if self.instance.precio_venta is not None:
+                self.initial['precio_venta'] = int(self.instance.precio_venta)
 
 
 # ==============================================================================

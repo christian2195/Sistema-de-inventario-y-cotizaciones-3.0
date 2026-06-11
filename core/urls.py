@@ -21,7 +21,7 @@ urlpatterns = [
     path('productos/', views.lista_productos, name='lista_productos'),
     path('productos/nuevo/', views.crear_producto, name='crear_producto'),
     path('productos/carga-masiva/', views.carga_masiva_productos, name='carga_masiva_productos'),
-    
+    path('productos/<int:producto_id>/editar/', views.editar_producto, name='editar_producto'),
     # ==========================================
     # MOVIMIENTOS LOGÍSTICOS (INTERFAZ POS)
     # ==========================================
@@ -51,4 +51,8 @@ urlpatterns = [
     # APIs Y ENDPOINTS DINÁMICOS
     # ==========================================
     path('api/cotizacion/<int:cotizacion_id>/productos/', views.api_productos_cotizacion, name='api_productos_cotizacion'),
+
+    path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
+    path('usuarios/nuevo/', views.crear_usuario, name='crear_usuario'),
+    path('usuarios/<int:pk>/editar/', views.editar_usuario, name='editar_usuario'),
 ]

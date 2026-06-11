@@ -3,12 +3,12 @@
 {% block title %}Catálogo de Productos | EMVEPRO{% endblock %}
 
 {% block content %}
-<div class="container-fluid animate__animated animate__fadeIn">
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
     
-    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-transparent p-3 rounded border shadow-sm bg-body-tertiary">
         <div>
-            <h3 class="mb-0 text-dark fw-bold">
-                <i class="bi bi-box-seam text-primary me-2"></i>Catálogo Base de Productos
+            <h3 class="mb-0 text-primary fw-bold">
+                <i class="bi bi-box-seam me-2"></i>Catálogo Base de Productos
             </h3>
             <small class="text-muted">Gestión de inventario, costos institucionales y referencias de Odoo de la sede Boleíta / La Urbina</small>
         </div>
@@ -23,10 +23,10 @@
     </div>
 
     <div class="card shadow-sm border-0 mb-4 rounded-3">
-        <div class="card-body bg-white p-3">
+        <div class="card-body bg-body-tertiary p-3">
             <div class="input-group">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="text" id="buscador-producto" class="form-control bg-light border-start-0" placeholder="Buscar por Nombre, SKU Interno, Código Odoo o Almacén...">
+                <span class="input-group-text bg-body border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="buscador-producto" class="form-control bg-body border-start-0" placeholder="Buscar por Nombre, SKU Interno, Código Odoo o Almacén...">
                 <button class="btn btn-outline-secondary" type="button" id="limpiar-busqueda">
                     <i class="bi bi-x-circle-fill"></i> Limpiar
                 </button>
@@ -41,15 +41,17 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0" id="tabla-productos">
-                    <thead> <tr>
-                            <th class="ps-4" style="width: 12%;">SKU Interno</th>
-                            <th style="width: 15%;">Código Odoo</th>
-                            <th style="width: 28%;">Descripción del Producto</th>
-                            <th style="width: 15%;">Ubicación / Almacén</th>
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-4" style="width: 10%;">SKU Interno</th>
+                            <th class="text-center" style="width: 6%;">Foto</th> <th style="width: 10%;">Código Odoo</th>
+                            <th style="width: 24%;">Descripción del Producto</th>
+                            <th style="width: 12%;">Ubicación / Almacén</th>
                             <th class="text-center" style="width: 10%;">Stock Actual</th>
                             <th class="text-end" style="width: 10%;">Costo Compra</th>
                             <th class="text-end" style="width: 10%;">Precio Venta</th>
-                            <th class="text-center" style="width: 10%;">Estatus</th>
+                            <th class="text-center" style="width: 8%;">Estatus</th>
+                            <th class="text-center" style="width: 8%;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,9 +61,19 @@
                                 <span class="font-monospace fw-bold text-secondary">{{ producto.codigo_sku }}</span>
                             </td>
                             
+                            <td class="text-center">
+                                {% if producto.imagen %}
+                                    <img src="{{ producto.imagen.url }}" alt="Foto" class="img-thumbnail p-1 shadow-sm bg-body" style="width: 45px; height: 45px; object-fit: cover; border-radius: 8px;">
+                                {% else %}
+                                    <div class="bg-body-secondary text-muted d-flex align-items-center justify-content-center border rounded shadow-sm mx-auto" style="width: 45px; height: 45px; border-radius: 8px;">
+                                        <i class="bi bi-camera" style="font-size: 1.2rem;"></i>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            
                             <td class="col-odoo">
                                 {% if "Código Odoo:" in producto.descripcion %}
-                                    <span class="badge bg-light text-dark border font-monospace fw-bold">
+                                    <span class="badge bg-body-secondary text-body border font-monospace fw-bold">
                                         {{ producto.descripcion|slice:"13:" }}
                                     </span>
                                 {% else %}
@@ -70,16 +82,16 @@
                             </td>
                             
                             <td class="col-nombre">
-                                <div class="fw-bold text-dark-emphasis text-item-nombre">{{ producto.nombre }}</div>
+                                <div class="fw-bold text-body text-item-nombre">{{ producto.nombre }}</div>
                                 {% if producto.descripcion and "Código Odoo:" not in producto.descripcion %}
-                                    <small class="text-muted d-block text-truncate text-item-desc" style="max-width: 320px;">
+                                    <small class="text-muted d-block text-truncate text-item-desc" style="max-width: 300px;">
                                         {{ producto.descripcion }}
                                     </small>
                                 {% endif %}
                             </td>
                             
                             <td class="col-almacen">
-                                <span class="text-dark fw-semibold small text-item-almacen">
+                                <span class="text-body fw-semibold small text-item-almacen">
                                     <i class="bi bi-geo-alt-fill text-danger me-1"></i>
                                     {{ producto.almacen.nombre|default:"Sede No Asignada" }}
                                 </span>
@@ -87,16 +99,16 @@
                             
                             <td class="text-center">
                                 <span class="badge {% if producto.stock_actual > 0 %}bg-success-subtle text-success border border-success-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %} px-2 py-1 fs-6 w-75 fw-semibold">
-                                    {{ producto.stock_actual }}
+                                    {{ producto.stock_actual|floatformat:0 }}
                                 </span>
                             </td>
                             
                             <td class="text-end fw-bold text-secondary">
-                                ${{ producto.costo_compra|default:"0.00" }}
+                                ${{ producto.costo_compra|default:"0"|floatformat:0 }}
                             </td>
                             
                             <td class="text-end fw-bold text-primary">
-                                ${{ producto.precio_venta|default:"0.00" }}
+                                ${{ producto.precio_venta|default:"0"|floatformat:0 }}
                             </td>
                             
                             <td class="text-center">
@@ -106,10 +118,16 @@
                                     <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="bi bi-eye-slash me-1"></i>Inactivo</span>
                                 {% endif %}
                             </td>
+
+                            <td class="text-center">
+                                <a href="{% url 'core:editar_producto' producto.id %}" class="btn btn-sm btn-outline-secondary shadow-sm" title="Editar Producto / Precios / Sede">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr id="fila-vacia-original">
-                            <td colspan="8" class="text-center p-5 text-muted">
+                            <td colspan="10" class="text-center p-5 text-muted">
                                 <i class="bi bi-box-open display-3 d-block mb-3 text-warning"></i>
                                 <h5>No hay productos registrados en el catálogo.</h5>
                                 <small>Utiliza la opción de <b>Carga Masiva</b> para importar tus listas estructuradas.</small>
@@ -118,7 +136,7 @@
                         {% endfor %}
                         
                         <tr id="fila-no-resultados" style="display: none;">
-                            <td colspan="8" class="text-center p-5 text-muted">
+                            <td colspan="10" class="text-center p-5 text-muted">
                                 <i class="bi bi-search display-3 d-block mb-3 text-danger"></i>
                                 <h5>No se encontraron productos con ese criterio.</h5>
                                 <small>Prueba buscando con otra palabra clave, SKU, referencia Odoo o almacén.</small>
@@ -160,7 +178,6 @@
                 const nodeDesc = fila.querySelector('.text-item-desc');
                 const desc = nodeDesc ? nodeDesc.textContent.toLowerCase() : "";
 
-                // Incluido el Almacen dentro del mapa de filtrado instantáneo
                 if (sku.includes(consulta) || odoo.includes(consulta) || nombre.includes(consulta) || desc.includes(consulta) || almacen.includes(consulta)) {
                     fila.style.display = "";
                     visibles++;

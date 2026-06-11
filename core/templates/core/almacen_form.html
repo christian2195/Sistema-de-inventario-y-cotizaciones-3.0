@@ -1,20 +1,22 @@
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}Registrar Almacen | EMVEPRO{% endblock %}
+{% block title %}Registrar Almacén | EMVEPRO{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center animate__animated animate__fadeIn">
     <div class="col-md-6">
         <div class="card shadow border-0 border-top border-warning border-4 mt-4">
-            <div class="card-header bg-white py-3">
-                <h4 class="mb-0 text-dark fw-bold">
-                    <i class="bi bi-house-add-fill text-warning me-2"></i> Registrar Nuevo Almacén / Depósito
+            
+            <div class="card-header bg-transparent py-3 border-bottom-0">
+                <h4 class="mb-0 fw-bold">
+                    <i class="bi bi-house-add-fill text-warning me-2"></i> Registrar Nuevo Almacén
                 </h4>
             </div>
-            <div class="card-body bg-light-subtle p-4">
+            
+            <div class="card-body bg-body-tertiary p-4 rounded-bottom">
                 <p class="text-muted small mb-4">
-                    Establezca las sedes, galpones o depósitos físicos autorizados para la distribución de stock y la procedencia de las Notas de Despacho en Fuerte Tiuna.
+                    Establezca las sedes, galpones o depósitos físicos autorizados para la distribución de stock y la procedencia de las Notas de Despacho.
                 </p>
                 
                 <form method="POST" id="almacen-form">
@@ -22,12 +24,12 @@
                     
                     <div class="row g-3">
                         <div class="col-12">{{ form.nombre|as_crispy_field }}</div>
-                        <div class="col-md-6">{{ form.ubicacion|as_crispy_field }}</div>
+                        <div class="col-12">{{ form.ubicacion|as_crispy_field }}</div>
                     </div>
                     
                     <div class="mt-4 pt-3 border-top text-end">
                         <a href="{% url 'core:dashboard' %}" class="btn btn-secondary me-2 px-3 shadow-sm">Cancelar</a>
-                        <button type="submit" class="btn btn-warning text-dark fw-bold px-4 shadow">
+                        <button type="submit" class="btn btn-warning text-dark fw-bold px-4 shadow-sm">
                             <i class="bi bi-save-fill me-1"></i> Guardar Almacén
                         </button>
                     </div>
@@ -36,9 +38,13 @@
         </div>
     </div>
 </div>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        document.querySelectorAll('#almacen-form input').forEach(el => el.classList.add('form-control'));
+        // Garantizar que todos los inputs del formulario tomen los estilos correctos
+        document.querySelectorAll('#almacen-form input, #almacen-form textarea, #almacen-form select').forEach(el => {
+            el.classList.add('form-control');
+        });
     });
 </script>
 {% endblock %}
