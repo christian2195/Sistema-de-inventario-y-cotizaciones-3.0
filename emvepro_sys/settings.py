@@ -115,7 +115,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-ve'
 
 TIME_ZONE = 'America/Caracas'
 
@@ -135,9 +135,18 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
-# Configuración de Autenticación
-LOGIN_REDIRECT_URL = 'core:dashboard'
-LOGOUT_REDIRECT_URL = 'login'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ==========================================
+# CONFIGURACIÓN DE AUTENTICACIÓN
+# ==========================================
+# A dónde ir después de loguearse con éxito
+LOGIN_REDIRECT_URL = 'core:dashboard'
+
+# A dónde ir después de cerrar sesión
+LOGOUT_REDIRECT_URL = 'core:login'
+
+# A dónde redirigir a un intruso que intenta entrar sin sesión
+LOGIN_URL = 'core:login'
